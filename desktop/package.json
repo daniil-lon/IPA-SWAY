@@ -1,0 +1,14 @@
+{
+  "name": "sway-desktop",
+  "productName": "Sway",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Windows desktop player for the existing Sway music library",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1",
+    "preview": "node server.cjs",
+    "build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1",
+    "check": "node scripts/check-runtime.cjs"
+  }
+}

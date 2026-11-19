@@ -1,0 +1,16 @@
+node_modules/
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+.env*
+artifacts/
+.private/
+.tools/
+android/.gradle/
+android/**/build/
+android/local.properties
+public/media/
+public/art/
+lyrics_archive/
+.playwright-mcp/
+test_catalog.json

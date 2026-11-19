@@ -1,0 +1,1002 @@
+[
+  {
+    "position": 1,
+    "progress": "same",
+    "shift": 0,
+    "trackId": "villian-madk1d-династия",
+    "title": "ДИНАСТИЯ",
+    "artist": "VILLIAN, madk1d",
+    "explicit": true,
+    "id": "villian-madk1d-династия"
+  },
+  {
+    "position": 2,
+    "progress": "same",
+    "shift": 0,
+    "trackId": "koss-плутто-земляк",
+    "title": "Земляк",
+    "artist": "Koss, ПЛУТТО",
+    "explicit": false,
+    "id": "koss-плутто-земляк"
+  },
+  {
+    "position": 3,
+    "progress": "same",
+    "shift": 0,
+    "trackId": "маяк-x-украсть-тебя",
+    "title": "Украсть тебя",
+    "artist": "МАЯК X",
+    "explicit": false,
+    "id": "маяк-x-украсть-тебя"
+  },
+  {
+    "position": 4,
+    "progress": "same",
+    "shift": 0,
+    "trackId": "toxi-дора-знак",
+    "title": "ЗНАК",
+    "artist": "Toxi$, Дора",
+    "explicit": true,
+    "id": "toxi-дора-знак"
+  },
+  {
+    "position": 5,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "nextime-даник-кис-ю",
+    "title": "КИС Ю",
+    "artist": "NEXTIME, Даник",
+    "explicit": true,
+    "id": "nextime-даник-кис-ю"
+  },
+  {
+    "position": 6,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "madk1d-villian-8-миля",
+    "title": "8 миля",
+    "artist": "madk1d, VILLIAN",
+    "explicit": true,
+    "id": "madk1d-villian-8-миля"
+  },
+  {
+    "position": 7,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "nemiga-весь-этот-мир",
+    "title": "Весь этот мир",
+    "artist": "NEMIGA, Дорогой Дневник",
+    "explicit": false,
+    "id": "nemiga-весь-этот-мир"
+  },
+  {
+    "position": 8,
+    "progress": "down",
+    "shift": -2,
+    "trackId": "татьяна-буланова-лёд",
+    "title": "Лёд",
+    "artist": "Татьяна Буланова",
+    "explicit": false,
+    "id": "татьяна-буланова-лёд"
+  },
+  {
+    "position": 9,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "kai-angel-andy-warhol",
+    "title": "andy warhol",
+    "artist": "Kai Angel",
+    "explicit": true,
+    "id": "kai-angel-andy-warhol"
+  },
+  {
+    "position": 10,
+    "progress": "down",
+    "shift": -2,
+    "trackId": "by-индия-xcho-mot-шадэ",
+    "title": "Шадэ",
+    "artist": "By Индия, Xcho, MOT",
+    "explicit": false,
+    "id": "by-индия-xcho-mot-шадэ"
+  },
+  {
+    "position": 11,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "урал-гайсин-снялцепи-ты-в-моих-мыслях-навсегда",
+    "title": "ты в моих мыслях навсегда",
+    "artist": "урал гайсин/снялцепи",
+    "explicit": true,
+    "id": "урал-гайсин-снялцепи-ты-в-моих-мыслях-навсегда"
+  },
+  {
+    "position": 12,
+    "progress": "up",
+    "shift": 4,
+    "trackId": "madk1d-так-по",
+    "title": "так по",
+    "artist": "madk1d",
+    "explicit": true,
+    "id": "madk1d-так-по"
+  },
+  {
+    "position": 13,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "gataski-первый-раз",
+    "title": "ПЕРВЫЙ РАЗ",
+    "artist": "GATASKI",
+    "explicit": true,
+    "id": "gataski-первый-раз"
+  },
+  {
+    "position": 14,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "enzro-ты-не-бойся-ночи",
+    "title": "Ты не бойся ночи",
+    "artist": "ENZRO",
+    "explicit": false,
+    "id": "enzro-ты-не-бойся-ночи"
+  },
+  {
+    "position": 15,
+    "progress": "down",
+    "shift": -4,
+    "trackId": "mia-boyka-экспонат",
+    "title": "ЭКСПОНАТ",
+    "artist": "MIA BOYKA",
+    "explicit": false,
+    "id": "mia-boyka-экспонат"
+  },
+  {
+    "position": 16,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "imael-angel-bad-times",
+    "title": "BAD TIMES",
+    "artist": "Imael Angel",
+    "explicit": false,
+    "id": "imael-angel-bad-times"
+  },
+  {
+    "position": 17,
+    "progress": "down",
+    "shift": -8,
+    "trackId": "цуефа-вирсавия-милана-некрасова-lizogub-давид-туро",
+    "title": "Я ТЕБЯ МОГНУ",
+    "artist": "ЦУЕФА, Вирсавия, Милана Некрасова, LIZOGUB, Давид Туров",
+    "explicit": false,
+    "id": "цуефа-вирсавия-милана-некрасова-lizogub-давид-туро"
+  },
+  {
+    "position": 18,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "bearwolf-феникс",
+    "title": "Феникс",
+    "artist": "BEARWOLF",
+    "explicit": false,
+    "id": "bearwolf-феникс"
+  },
+  {
+    "position": 19,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "zivert-gaz",
+    "title": "GAZ",
+    "artist": "Zivert",
+    "explicit": false,
+    "id": "zivert-gaz"
+  },
+  {
+    "position": 20,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "artik-asti-лампочки",
+    "title": "Лампочки",
+    "artist": "ARTIK & ASTI",
+    "explicit": false,
+    "id": "artik-asti-лампочки"
+  },
+  {
+    "position": 21,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "полка-омут",
+    "title": "Омут",
+    "artist": "Полка, YASMI",
+    "explicit": true,
+    "id": "полка-омут"
+  },
+  {
+    "position": 22,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "greyrock-tewiq-madk1d-распять",
+    "title": "распять",
+    "artist": "greyrock, tewiq, madk1d",
+    "explicit": false,
+    "id": "greyrock-tewiq-madk1d-распять"
+  },
+  {
+    "position": 23,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "хаски-ветром-снегом-зноем",
+    "title": "Ветром Снегом Зноем",
+    "artist": "Хаски",
+    "explicit": false,
+    "id": "хаски-ветром-снегом-зноем"
+  },
+  {
+    "position": 24,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "dabbackwood-назад-в-кресты",
+    "title": "назад в кресты",
+    "artist": "dabbackwood",
+    "explicit": true,
+    "id": "dabbackwood-назад-в-кресты"
+  },
+  {
+    "position": 25,
+    "progress": "down",
+    "shift": -3,
+    "trackId": "баста-моя-мишель-если-я-буду-танцевать",
+    "title": "Если я буду танцевать",
+    "artist": "Баста, Моя Мишель",
+    "explicit": false,
+    "id": "баста-моя-мишель-если-я-буду-танцевать"
+  },
+  {
+    "position": 26,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "катрин-штоль-пьяный",
+    "title": "Пьяный",
+    "artist": "Катрин Штоль",
+    "explicit": true,
+    "id": "катрин-штоль-пьяный"
+  },
+  {
+    "position": 27,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "villian-aarne-общество-мертвых-поэтов",
+    "title": "Общество Мертвых Поэтов",
+    "artist": "VILLIAN, Aarne",
+    "explicit": true,
+    "id": "villian-aarne-общество-мертвых-поэтов"
+  },
+  {
+    "position": 28,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "voskresenskii-франсе",
+    "title": "Франсе",
+    "artist": "Voskresenskii",
+    "explicit": true,
+    "id": "voskresenskii-франсе"
+  },
+  {
+    "position": 29,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "егор-крид-милый-ублюдок",
+    "title": "милый ублюдок",
+    "artist": "ЕГОР КРИД",
+    "explicit": true,
+    "id": "егор-крид-милый-ублюдок"
+  },
+  {
+    "position": 30,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "егор-крид-og-buda-toxi-мэйби-бэйби-baby-cute-дора-",
+    "title": "Malo 2.0",
+    "artist": "ЕГОР КРИД, OG Buda, Toxi$, Мэйби Бэйби, Baby Cute, Дора",
+    "explicit": true,
+    "id": "егор-крид-og-buda-toxi-мэйби-бэйби-baby-cute-дора-"
+  },
+  {
+    "position": 31,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "villian-101-причина-prod-by-osa",
+    "title": "101 причина (prod. by OSA)",
+    "artist": "VILLIAN, OG Buda",
+    "explicit": true,
+    "id": "villian-101-причина-prod-by-osa"
+  },
+  {
+    "position": 32,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "yungmeechy-дофамин-x-oohc",
+    "title": "Дофамин x Oohc",
+    "artist": "YungMeechy, Kanatbek",
+    "explicit": true,
+    "id": "yungmeechy-дофамин-x-oohc"
+  },
+  {
+    "position": 33,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "yasmi-кого-ты-ждала",
+    "title": "Кого ты ждала?",
+    "artist": "YASMI, T-Fest",
+    "explicit": true,
+    "id": "yasmi-кого-ты-ждала"
+  },
+  {
+    "position": 34,
+    "progress": "down",
+    "shift": -7,
+    "trackId": "slava-marlow-ты-горишь-как-огонь-2",
+    "title": "Ты горишь как огонь 2",
+    "artist": "SLAVA MARLOW, Gazan, Кобяков, TOLY SUMMER, Вова Солодков",
+    "explicit": false,
+    "id": "slava-marlow-ты-горишь-как-огонь-2"
+  },
+  {
+    "position": 35,
+    "progress": "up",
+    "shift": 6,
+    "trackId": "weeka-международная",
+    "title": "Международная",
+    "artist": "Weeka",
+    "explicit": false,
+    "id": "weeka-международная"
+  },
+  {
+    "position": 36,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "anna-asti-npc",
+    "title": "NPC",
+    "artist": "ANNA ASTI",
+    "explicit": false,
+    "id": "anna-asti-npc"
+  },
+  {
+    "position": 37,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "navai-сгореть",
+    "title": "Сгореть",
+    "artist": "NAVAI",
+    "explicit": false,
+    "id": "navai-сгореть"
+  },
+  {
+    "position": 38,
+    "progress": "down",
+    "shift": -6,
+    "trackId": "hollyflame-тону",
+    "title": "Тону",
+    "artist": "HOLLYFLAME",
+    "explicit": false,
+    "id": "hollyflame-тону"
+  },
+  {
+    "position": 39,
+    "progress": "down",
+    "shift": -5,
+    "trackId": "sayan-мальборо",
+    "title": "Мальборо",
+    "artist": "SAYAN",
+    "explicit": false,
+    "id": "sayan-мальборо"
+  },
+  {
+    "position": 40,
+    "progress": "down",
+    "shift": -2,
+    "trackId": "zivert-не-святая",
+    "title": "не святая",
+    "artist": "Zivert",
+    "explicit": false,
+    "id": "zivert-не-святая"
+  },
+  {
+    "position": 41,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "милена-mibreoo-давид-туров-ненавидеть",
+    "title": "Ненавидеть",
+    "artist": "МИЛЕНА MIBREOO, Давид Туров",
+    "explicit": false,
+    "id": "милена-mibreoo-давид-туров-ненавидеть"
+  },
+  {
+    "position": 42,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "madk1d-тёмный-принц-ты-че-обиделась",
+    "title": "ты че обиделась",
+    "artist": "madk1d, тёмный принц",
+    "explicit": true,
+    "id": "madk1d-тёмный-принц-ты-че-обиделась"
+  },
+  {
+    "position": 43,
+    "progress": "down",
+    "shift": -3,
+    "trackId": "icegergert-zivert-банк",
+    "title": "БАНК",
+    "artist": "ICEGERGERT, Zivert",
+    "explicit": false,
+    "id": "icegergert-zivert-банк"
+  },
+  {
+    "position": 44,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "sqwoz-bab-скинь-ножки",
+    "title": "СКИНЬ НОЖКИ",
+    "artist": "SQWOZ BAB, Satyr",
+    "explicit": false,
+    "id": "sqwoz-bab-скинь-ножки"
+  },
+  {
+    "position": 45,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "полка-пожар",
+    "title": "Пожар",
+    "artist": "Полка",
+    "explicit": true,
+    "id": "полка-пожар"
+  },
+  {
+    "position": 46,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "yasmi-сайга",
+    "title": "Сайга",
+    "artist": "YASMI",
+    "explicit": true,
+    "id": "yasmi-сайга"
+  },
+  {
+    "position": 47,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "gone-fludd-код-гиас",
+    "title": "КОД ГИАС",
+    "artist": "GONE.Fludd",
+    "explicit": true,
+    "id": "gone-fludd-код-гиас"
+  },
+  {
+    "position": 48,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "akmal-любовная",
+    "title": "Любовная",
+    "artist": "Akmal'",
+    "explicit": false,
+    "id": "akmal-любовная"
+  },
+  {
+    "position": 49,
+    "progress": "down",
+    "shift": -3,
+    "trackId": "света-мои-слёзы",
+    "title": "Мои слёзы",
+    "artist": "Света",
+    "explicit": false,
+    "id": "света-мои-слёзы"
+  },
+  {
+    "position": 50,
+    "progress": "up",
+    "shift": 7,
+    "trackId": "ella-superfresh",
+    "title": "SUPERFRESH",
+    "artist": "ELLA, ХОЛОД",
+    "explicit": true,
+    "id": "ella-superfresh"
+  },
+  {
+    "position": 51,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "noнейма-а-её-демоны-имба",
+    "title": "А её демоны имба",
+    "artist": "NoНейма, Anakira",
+    "explicit": false,
+    "id": "noнейма-а-её-демоны-имба"
+  },
+  {
+    "position": 52,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "9mice-егор-крид-тёмный-принц-madk1d-jealous",
+    "title": "Jealous",
+    "artist": "9mice, ЕГОР КРИД, тёмный принц, madk1d",
+    "explicit": true,
+    "id": "9mice-егор-крид-тёмный-принц-madk1d-jealous"
+  },
+  {
+    "position": 53,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "jakone-была-не-была",
+    "title": "Была, не была",
+    "artist": "Jakone, Kiliana",
+    "explicit": false,
+    "id": "jakone-была-не-была"
+  },
+  {
+    "position": 54,
+    "progress": "down",
+    "shift": -5,
+    "trackId": "ваня-дмитриенко-шёлк",
+    "title": "Шёлк",
+    "artist": "Ваня Дмитриенко",
+    "explicit": false,
+    "id": "ваня-дмитриенко-шёлк"
+  },
+  {
+    "position": 55,
+    "progress": "new",
+    "shift": 1,
+    "trackId": "марат-альборов-по-барам",
+    "title": "По барам",
+    "artist": "Марат Альборов, Альберт Назранов",
+    "explicit": false,
+    "id": "марат-альборов-по-барам"
+  },
+  {
+    "position": 56,
+    "progress": "up",
+    "shift": 7,
+    "trackId": "almary-не-звони-мне",
+    "title": "Не звони мне",
+    "artist": "ALMARY, A.V.G",
+    "explicit": false,
+    "id": "almary-не-звони-мне"
+  },
+  {
+    "position": 57,
+    "progress": "up",
+    "shift": 8,
+    "trackId": "onda-andar-one-way-ticket",
+    "title": "one way ticket",
+    "artist": "onda andar",
+    "explicit": true,
+    "id": "onda-andar-one-way-ticket"
+  },
+  {
+    "position": 58,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "icegergert-евродэнс-ru",
+    "title": "Евродэнс.ru",
+    "artist": "ICEGERGERT",
+    "explicit": false,
+    "id": "icegergert-евродэнс-ru"
+  },
+  {
+    "position": 59,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "ваня-дмитриенко-отражение",
+    "title": "Отражение",
+    "artist": "Ваня Дмитриенко, МАЛЬБЭК, Сюзанна",
+    "explicit": false,
+    "id": "ваня-дмитриенко-отражение"
+  },
+  {
+    "position": 60,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "iowa-мы",
+    "title": "МЫ",
+    "artist": "IOWA",
+    "explicit": false,
+    "id": "iowa-мы"
+  },
+  {
+    "position": 61,
+    "progress": "down",
+    "shift": -7,
+    "trackId": "gayazov-brother-санта-лючия",
+    "title": "Санта Лючия",
+    "artist": "GAYAZOV$ BROTHER$",
+    "explicit": false,
+    "id": "gayazov-brother-санта-лючия"
+  },
+  {
+    "position": 62,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "miyagi-эндшпиль-i-got-love",
+    "title": "I Got Love",
+    "artist": "Miyagi & Эндшпиль, Рем Дигга",
+    "explicit": true,
+    "id": "miyagi-эндшпиль-i-got-love"
+  },
+  {
+    "position": 63,
+    "progress": "down",
+    "shift": -1,
+    "trackId": "icegergert-агент-провокатор",
+    "title": "Агент провокатор",
+    "artist": "ICEGERGERT",
+    "explicit": true,
+    "id": "icegergert-агент-провокатор"
+  },
+  {
+    "position": 64,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "тёмный-принц-утекай",
+    "title": "утекай",
+    "artist": "тёмный принц",
+    "explicit": true,
+    "id": "тёмный-принц-утекай"
+  },
+  {
+    "position": 65,
+    "progress": "down",
+    "shift": -23,
+    "trackId": "gazan-67-six-seven",
+    "title": "67 (Six Seven)",
+    "artist": "Gazan",
+    "explicit": false,
+    "id": "gazan-67-six-seven"
+  },
+  {
+    "position": 66,
+    "progress": "up",
+    "shift": 2,
+    "trackId": "лирида-мой-дом",
+    "title": "Мой дом",
+    "artist": "Лирида",
+    "explicit": false,
+    "id": "лирида-мой-дом"
+  },
+  {
+    "position": 67,
+    "progress": "down",
+    "shift": -9,
+    "trackId": "police-in-paris-бизи",
+    "title": "БИЗИ",
+    "artist": "Police In Paris, Ida Galich",
+    "explicit": false,
+    "id": "police-in-paris-бизи"
+  },
+  {
+    "position": 68,
+    "progress": "up",
+    "shift": 6,
+    "trackId": "fortuna-812-порезы-на-руках",
+    "title": "порезы на руках",
+    "artist": "FORTUNA 812, elox1m",
+    "explicit": true,
+    "id": "fortuna-812-порезы-на-руках"
+  },
+  {
+    "position": 69,
+    "progress": "up",
+    "shift": 4,
+    "trackId": "bushido-zho-днями-и-ночами",
+    "title": "днями и ночами",
+    "artist": "BUSHIDO ZHO, Scally Milano, Полка",
+    "explicit": true,
+    "id": "bushido-zho-днями-и-ночами"
+  },
+  {
+    "position": 70,
+    "progress": "down",
+    "shift": -19,
+    "trackId": "татьяна-куртукова-матушка",
+    "title": "Матушка",
+    "artist": "Татьяна Куртукова",
+    "explicit": false,
+    "id": "татьяна-куртукова-матушка"
+  },
+  {
+    "position": 71,
+    "progress": "up",
+    "shift": 9,
+    "trackId": "gone-fludd-перье",
+    "title": "Перье",
+    "artist": "GONE.Fludd, SQWOZ BAB",
+    "explicit": false,
+    "id": "gone-fludd-перье"
+  },
+  {
+    "position": 72,
+    "progress": "up",
+    "shift": 7,
+    "trackId": "taketake-baby-my-type",
+    "title": "baby my type",
+    "artist": "TAKETAKE",
+    "explicit": false,
+    "id": "taketake-baby-my-type"
+  },
+  {
+    "position": 73,
+    "progress": "up",
+    "shift": 4,
+    "trackId": "миша-каштан-ни-пера-ни-пуха",
+    "title": "Ни пера, ни пуха!",
+    "artist": "Миша Каштан",
+    "explicit": true,
+    "id": "миша-каштан-ни-пера-ни-пуха"
+  },
+  {
+    "position": 74,
+    "progress": "up",
+    "shift": 4,
+    "trackId": "madk1d-tewiq-greyrock-martine-rose",
+    "title": "MARTINE ROSE",
+    "artist": "madk1d, tewiq, greyrock",
+    "explicit": true,
+    "id": "madk1d-tewiq-greyrock-martine-rose"
+  },
+  {
+    "position": 75,
+    "progress": "up",
+    "shift": 8,
+    "trackId": "хаски-бит-шатает-голову",
+    "title": "Бит шатает голову",
+    "artist": "Хаски",
+    "explicit": true,
+    "id": "хаски-бит-шатает-голову"
+  },
+  {
+    "position": 76,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "hollyflame-нежность",
+    "title": "Нежность",
+    "artist": "HOLLYFLAME",
+    "explicit": false,
+    "id": "hollyflame-нежность"
+  },
+  {
+    "position": 77,
+    "progress": "down",
+    "shift": -7,
+    "trackId": "дима-билан-я-твой-номер-один",
+    "title": "Я твой номер один",
+    "artist": "Дима Билан",
+    "explicit": false,
+    "id": "дима-билан-я-твой-номер-один"
+  },
+  {
+    "position": 78,
+    "progress": "down",
+    "shift": -12,
+    "trackId": "sabi-mia-boyka-базовый-минимум",
+    "title": "Базовый минимум",
+    "artist": "SABI, MIA BOYKA",
+    "explicit": false,
+    "id": "sabi-mia-boyka-базовый-минимум"
+  },
+  {
+    "position": 79,
+    "progress": "down",
+    "shift": -4,
+    "trackId": "settlers-светлое-чувство",
+    "title": "Светлое чувство",
+    "artist": "Settlers",
+    "explicit": false,
+    "id": "settlers-светлое-чувство"
+  },
+  {
+    "position": 80,
+    "progress": "up",
+    "shift": 1,
+    "trackId": "lightprey-целоваться",
+    "title": "целоваться",
+    "artist": "lightprey",
+    "explicit": true,
+    "id": "lightprey-целоваться"
+  },
+  {
+    "position": 81,
+    "progress": "up",
+    "shift": 3,
+    "trackId": "miyagi-по-уши-в-тебя-влюблён",
+    "title": "По уши в тебя влюблён",
+    "artist": "Miyagi",
+    "explicit": false,
+    "id": "miyagi-по-уши-в-тебя-влюблён"
+  },
+  {
+    "position": 82,
+    "progress": "up",
+    "shift": 7,
+    "trackId": "marcel-xcho-элджей-она-мм",
+    "title": "Она мм",
+    "artist": "Marcel, Xcho, Элджей",
+    "explicit": false,
+    "id": "marcel-xcho-элджей-она-мм"
+  },
+  {
+    "position": 83,
+    "progress": "up",
+    "shift": 16,
+    "trackId": "fortuna-812-highway",
+    "title": "Highway",
+    "artist": "FORTUNA 812",
+    "explicit": true,
+    "id": "fortuna-812-highway"
+  },
+  {
+    "position": 84,
+    "progress": "down",
+    "shift": -2,
+    "trackId": "баста-кинолента",
+    "title": "Кинолента",
+    "artist": "Баста",
+    "explicit": false,
+    "id": "баста-кинолента"
+  },
+  {
+    "position": 85,
+    "progress": "down",
+    "shift": -13,
+    "trackId": "michael-jackson-billie-jean",
+    "title": "Billie Jean",
+    "artist": "Michael Jackson",
+    "explicit": false,
+    "id": "michael-jackson-billie-jean"
+  },
+  {
+    "position": 86,
+    "progress": "up",
+    "shift": 6,
+    "trackId": "whole-lotta-swag-обнял-поцеловал",
+    "title": "Обнял, поцеловал",
+    "artist": "Whole Lotta Swag",
+    "explicit": true,
+    "id": "whole-lotta-swag-обнял-поцеловал"
+  },
+  {
+    "position": 87,
+    "progress": "up",
+    "shift": 8,
+    "trackId": "valid-кружева",
+    "title": "Кружева",
+    "artist": "VALID",
+    "explicit": false,
+    "id": "valid-кружева"
+  },
+  {
+    "position": 88,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "navai-дай-знать",
+    "title": "Дай знать",
+    "artist": "NAVAI",
+    "explicit": false,
+    "id": "navai-дай-знать"
+  },
+  {
+    "position": 89,
+    "progress": "down",
+    "shift": -18,
+    "trackId": "король-и-шут-кукла-колдуна",
+    "title": "Кукла колдуна",
+    "artist": "Король и Шут",
+    "explicit": false,
+    "id": "король-и-шут-кукла-колдуна"
+  },
+  {
+    "position": 90,
+    "progress": "up",
+    "shift": 8,
+    "trackId": "newlightchild-roman",
+    "title": "roman",
+    "artist": "NEWLIGHTCHILD",
+    "explicit": true,
+    "id": "newlightchild-roman"
+  },
+  {
+    "position": 91,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "n1nt3nd0-отмели",
+    "title": "Отмели",
+    "artist": "N1NT3ND0, Крёстная семья",
+    "explicit": true,
+    "id": "n1nt3nd0-отмели"
+  },
+  {
+    "position": 92,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "yungmeechy-дофамин-prod-by-philadelphia76",
+    "title": "Дофамин (prod. by Philadelphia76)",
+    "artist": "YungMeechy",
+    "explicit": true,
+    "id": "yungmeechy-дофамин-prod-by-philadelphia76"
+  },
+  {
+    "position": 93,
+    "progress": "down",
+    "shift": -8,
+    "trackId": "xolidayboy-пожары",
+    "title": "Пожары",
+    "artist": "XOLIDAYBOY",
+    "explicit": false,
+    "id": "xolidayboy-пожары"
+  },
+  {
+    "position": 94,
+    "progress": "up",
+    "shift": 10,
+    "trackId": "мари-краймбрери-красиво",
+    "title": "Красиво",
+    "artist": "Мари Краймбрери",
+    "explicit": false,
+    "id": "мари-краймбрери-красиво"
+  },
+  {
+    "position": 95,
+    "progress": "up",
+    "shift": 7,
+    "trackId": "madk1d-паранойя-цена",
+    "title": "цена",
+    "artist": "madk1d, паранойя",
+    "explicit": true,
+    "id": "madk1d-паранойя-цена"
+  },
+  {
+    "position": 96,
+    "progress": "up",
+    "shift": 5,
+    "trackId": "pimp-schwab-всё-что-нас-не-убивает-extended-club-m",
+    "title": "Всё. что нас не убивает (Extended Club Mix)",
+    "artist": "Pimp Schwab",
+    "explicit": true,
+    "id": "pimp-schwab-всё-что-нас-не-убивает-extended-club-m"
+  },
+  {
+    "position": 97,
+    "progress": "up",
+    "shift": 9,
+    "trackId": "villian-случайно-наступил-на-шприц",
+    "title": "Случайно Наступил На Шприц",
+    "artist": "VILLIAN",
+    "explicit": true,
+    "id": "villian-случайно-наступил-на-шприц"
+  },
+  {
+    "position": 98,
+    "progress": "down",
+    "shift": -10,
+    "trackId": "анна-немченко-плавит",
+    "title": "Плавит",
+    "artist": "Анна Немченко, DAVA",
+    "explicit": false,
+    "id": "анна-немченко-плавит"
+  },
+  {
+    "position": 99,
+    "progress": "down",
+    "shift": -12,
+    "trackId": "ваня-дмитриенко-силуэт-из-к-ф-алиса-в-стране-чудес",
+    "title": "Силуэт (из к/ф «Алиса в Стране Чудес»)",
+    "artist": "Ваня Дмитриенко, Аня Пересильд",
+    "explicit": false,
+    "id": "ваня-дмитриенко-силуэт-из-к-ф-алиса-в-стране-чудес"
+  },
+  {
+    "position": 100,
+    "progress": "up",
+    "shift": 4,
+    "trackId": "buinagolovushka-ты-лети",
+    "title": "Ты лети",
+    "artist": "BUINAGOLOVUSHKA",
+    "explicit": false,
+    "id": "buinagolovushka-ты-лети"
+  }
+]

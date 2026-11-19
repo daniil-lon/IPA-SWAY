@@ -1,0 +1,20 @@
+plugins { id 'com.android.application' }
+android {
+ namespace 'ru.academmix.sway'
+ compileSdk 35
+ buildToolsVersion '35.0.0'
+ defaultConfig { applicationId 'ru.academmix.sway'; minSdk 26; targetSdk 35; versionCode 1; versionName '1.0.0' }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+ def signingFile=System.getenv('SWAY_SIGNING_FILE')
+ if(signingFile){
+  def secrets=new Properties();file(signingFile).withReader('UTF-8') { secrets.load(it) }
+  signingConfigs { sway { storeFile file(secrets['storeFile']); storePassword secrets['storePassword']; keyAlias secrets['keyAlias']; keyPassword secrets['keyPassword'] } }
+  buildTypes { release { signingConfig signingConfigs.sway; minifyEnabled false } }
+ }
+}
+dependencies {
+ implementation 'androidx.webkit:webkit:1.12.1'
+ implementation 'androidx.media3:media3-exoplayer:1.4.0'
+ implementation 'androidx.media3:media3-session:1.4.0'
+ implementation 'androidx.media3:media3-datasource:1.4.0'
+}

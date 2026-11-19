@@ -1,0 +1,6 @@
+import fs from 'node:fs';
+let html=fs.readFileSync('public/admin.html','utf8');const m=html.match(/<script>\s*([\s\S]*?)<\/script>/);if(!m)throw Error('admin inline script missing');let js=m[1];
+js=js.replace('onclick="deleteBroadcast(\'${b.id}\')"','data-delete-broadcast="${escapeHTML(b.id)}"').replace("onclick='editEditorial(${JSON.stringify(p)})'",'data-edit-editorial="${escapeHTML(JSON.stringify(p))}"').replace('onclick="deleteEditorial(\'${p.id}\')"','data-delete-editorial="${escapeHTML(p.id)}"');
+js+=`\ndocument.addEventListener('click',event=>{const b=event.target.closest('[data-delete-broadcast],[data-edit-editorial],[data-delete-editorial]');if(!b)return;if(b.dataset.deleteBroadcast)window.deleteBroadcast(b.dataset.deleteBroadcast);if(b.dataset.deleteEditorial)window.deleteEditorial(b.dataset.deleteEditorial);if(b.dataset.editEditorial){try{window.editEditorial(JSON.parse(b.dataset.editEditorial));}catch{}}});\n`;
+fs.writeFileSync('public/admin.js',js);html=html.replace(m[0],'');fs.writeFileSync('public/admin.html',html);
+const p='public/_headers';let headers=fs.readFileSync(p,'utf8').replace("script-src 'self' 'unsafe-inline' https://telegram.org","script-src 'self' https://telegram.org");fs.writeFileSync(p,headers);

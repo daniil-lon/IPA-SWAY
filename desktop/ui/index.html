@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' sway:; img-src 'self' sway: data: blob:; media-src 'self' sway: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self' sway:; object-src 'none'; base-uri 'none'">
+  <title>Sway Музыка</title><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./reference.css"><link rel="stylesheet" href="./features.css">
+</head>
+<body>
+  <div class="window-drag"></div>
+  <div class="window-actions"><button data-window="minimize" title="Свернуть" aria-label="Свернуть"><svg viewBox="0 0 12 12"><path d="M1 6h10"/></svg></button><button data-window="maximize" title="Развернуть" aria-label="Развернуть"><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8"/></svg></button><button data-window="close" title="Закрыть" aria-label="Закрыть"><svg viewBox="0 0 12 12"><path d="m2 2 8 8M10 2l-8 8"/></svg></button></div>
+  <aside class="sidebar">
+    <button class="brand" data-go="home" aria-label="Sway Музыка — главная"><svg class="brand-star" viewBox="0 0 40 40" aria-hidden="true"><use href="./reference-icons.svg#musicLogo"></use></svg><span><span class="brand-top">Sway</span><strong>Музыка</strong></span></button>
+    <nav class="nav-main" aria-label="Основная навигация">
+      <button data-go="search"><i data-icon="search"></i><span>Поиск</span></button>
+      <button data-go="home" class="active"><i data-icon="music"></i><span>Главная</span></button>
+      <button data-go="concerts"><i data-icon="ticket"></i><span>Концерты</span></button>
+      <button data-go="podcasts"><i data-icon="podcast"></i><span>Книги и подкасты</span></button>
+      <button data-go="collection"><i data-icon="collection"></i><span>Коллекция</span></button>
+    </nav>
+    <div class="sidebar-pins" id="sidebar-pins"></div>
+    <div class="sidebar-bottom"><button class="local-library" data-action="import"><i data-icon="folder"></i> Музыка с компьютера</button><button class="account" data-action="profile"><span class="avatar">S</span><span><strong id="account-name">Моя музыка</strong><small>На этом компьютере</small></span><i data-icon="chevron"></i></button></div>
+  </aside>
+  <main class="content" id="content" tabindex="-1"><div class="loading"><span class="loading-star">✦</span>Собираем музыку для вас</div></main>
+  <footer class="player" id="player">
+    <button class="now-art" data-action="expand" title="Открыть плеер"><img id="now-art" alt="Обложка текущего трека"></button>
+    <div class="now-info"><div><button id="now-title" data-action="expand">Выберите музыку</button><button class="more-track" data-action="track-menu" aria-label="Меню трека">···</button></div><button id="now-artist" data-action="current-artist">Sway</button></div>
+    <button class="icon-button like-current" data-action="like" title="Мне нравится" aria-label="Мне нравится"><i data-icon="heart"></i></button>
+    <div class="transport"><button class="icon-button" data-action="shuffle" title="Перемешать" aria-label="Перемешать"><i data-icon="shuffle"></i></button><button class="icon-button" data-action="previous" title="Предыдущий трек" aria-label="Предыдущий трек"><i data-icon="previous"></i></button><button class="play-main" data-action="play" title="Воспроизвести" aria-label="Воспроизвести"><i data-icon="play"></i></button><button class="icon-button" data-action="next" title="Следующий трек" aria-label="Следующий трек"><i data-icon="next"></i></button><button class="icon-button" data-action="repeat" title="Повтор" aria-label="Повтор"><i data-icon="repeat"></i></button><button class="icon-button dislike" data-action="dislike" title="Не рекомендовать" aria-label="Не рекомендовать"><i data-icon="dislike"></i></button></div>
+    <div class="player-tools"><button class="icon-button" data-action="lyrics" title="Текст трека" aria-label="Текст трека"><i data-icon="lyrics"></i></button><button class="icon-button" data-action="queue" title="Очередь воспроизведения" aria-label="Очередь воспроизведения"><i data-icon="queue"></i></button><button class="icon-button" data-action="settings" title="Настройки" aria-label="Настройки"><i data-icon="sliders"></i></button><div class="volume-control"><button class="icon-button" data-action="mute" title="Громкость" aria-label="Выключить звук"><i data-icon="volume"></i></button><div class="volume-pop"><input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Громкость"></div></div></div>
+    <div class="timeline"><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Позиция воспроизведения"><span id="timeline-time"></span></div>
+  </footer>
+  <aside class="queue-panel" id="queue-panel" hidden></aside>
+  <div class="overlay" id="overlay" hidden></div><div class="toast" id="toast" role="status"></div>
+  <audio id="audio" preload="metadata"></audio>
+  <script type="module" src="./app.js"></script>
+</body></html>

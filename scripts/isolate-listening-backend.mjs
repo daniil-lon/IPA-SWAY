@@ -1,0 +1,15 @@
+import {readFile,copyFile,writeFile} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {createHash} from 'node:crypto';
+const path='artifacts/sway-polish-release.json',release=JSON.parse(await readFile(path,'utf8'));
+const stable=resolve('artifacts/sway-polish-ship-1794988410919');
+const worker=await readFile(join(stable,'worker.mjs'),'utf8');
+if(!worker.includes("path==='/api/playlists'")||!worker.includes("path==='/api/import/resolve'")||!worker.includes('user:{id:user.id'))throw new Error('Missing listening API in stable server snapshot');
+for(const file of ['worker.mjs','admin-store.mjs','public/admin.html','public/admin.js','public/admin.css'])await copyFile(join(stable,file),join(release.destination,file));
+for(const file of ['admin.html','admin.js','admin.css'])release.assets[file]=createHash('sha256').update(await readFile(join(release.destination,'public',file))).digest('hex');
+release.backendFrom=stable;
+release.backend={};for(const file of ['worker.mjs','admin-store.mjs','playlist-store.mjs','playlist-import.mjs'])release.backend[file]=createHash('sha256').update(await readFile(join(release.destination,file))).digest('hex');
+const deployments=JSON.parse(await readFile('artifacts/sway-before-listening-deployments.json','utf8'));
+release.baseVersion=deployments.at(-1).versions[0].version_id;
+await writeFile(path,JSON.stringify(release,null,2));
+console.log('Frozen the verified server and existing admin UI; concurrent admin edits remain in the working folder.');
