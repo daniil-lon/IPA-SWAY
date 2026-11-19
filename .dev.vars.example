@@ -1,3 +1,10 @@
 YANDEX_CLIENT_ID=
 YANDEX_CLIENT_SECRET=
 # PUBLIC_ORIGIN=https://your-app.example
+
+# Admin panel (set with `wrangler secret put <NAME>`; never commit real values)
+# ADMIN_KEY=                       # optional emergency plaintext key, prefer the password login
+# ADMIN_SETUP_TOKEN=               # one-time token required by POST /api/admin/setup (min 16 chars)
+# TELEGRAM_BOT_TOKEN=
+# TELEGRAM_WEBHOOK_SECRET=         # pass to setWebhook as secret_token; required for /api/telegram/webhook
+# ADMIN_TELEGRAM_CHAT_ID=          # numeric chat id allowed to talk to the bot

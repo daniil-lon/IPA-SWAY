@@ -1,8 +1,7 @@
 import {activityRoute} from './activity-store.mjs';
 import {applyCatalogOverrides,auditCatalog,saveCatalogOverride} from './catalog-store.mjs';
-import {verifyAdminSession} from './admin-store.mjs';
+import {safeEqual,verifyAdminSession} from './admin-store.mjs';
 import {media} from './media.mjs';
-import tracks from './public/catalog.json';
 import chartItems from './public/chart.json';
 import {json,profileRoute,readJSON} from './profile-store.mjs';
 import {
@@ -20,12 +19,43 @@ import {readChart,recordChartListen} from './chart-store.mjs';
 import {readTaste,writeTaste} from './taste-store.mjs';
 import {playlistRoute} from './playlist-store.mjs';
 import {importPlaylist} from './playlist-import.mjs';
-const mediaSizes = new Map(tracks.flatMap(t=>[[t.audio,t.bytes],[encodeURI(t.audio),t.bytes],[decodeURI(t.audio),t.bytes]]));
-const ids = new Set(tracks.map(t => t.id));
-async function getTrackIds(env){
- const custom=await getCustomTracks(env);
- const set=new Set(ids);
- for(const c of custom) set.add(c.id);
+// The catalog is a 5 MB static asset. Loading it through the assets binding keeps
+// it out of the Worker bundle and lets every isolate parse it at most once.
+let catalogCache = null, catalogIndexCache = null;
+async function catalogTracks(env, req) {
+ if (!catalogCache) {
+  catalogCache = env.ASSETS.fetch(new Request(new URL('/catalog.json', req.url))).then(response => {
+   if (!response.ok) throw new Error('catalog_asset_' + response.status);
+   return response.json();
+  });
+ }
+ try {
+  return await catalogCache;
+ } catch (error) {
+  catalogCache = null;
+  throw error;
+ }
+}
+async function catalogIndex(env, req) {
+ if (!catalogIndexCache) {
+  catalogIndexCache = (async () => {
+   const list = await catalogTracks(env, req), sizes = new Map(), ids = new Set();
+   for (const t of list) {
+    sizes.set(t.audio, t.bytes);
+    try { sizes.set(encodeURI(t.audio), t.bytes); } catch {}
+    try { sizes.set(decodeURI(t.audio), t.bytes); } catch {}
+    ids.add(t.id);
+   }
+   return { sizes, ids };
+  })().catch(error => { catalogIndexCache = null; throw error; });
+ }
+ return catalogIndexCache;
+}
+async function getTrackIds(env, req) {
+ const { ids } = await catalogIndex(env, req);
+ const custom = await getCustomTracks(env);
+ const set = new Set(ids);
+ for (const c of custom) set.add(c.id);
  return set;
 }
 const ttl = 30 * 86400, txName = 'tonika_oauth', sidName = 'tonika_session';
@@ -118,9 +148,9 @@ export default {async fetch(req,env){
  try{
   if(path==='/api/catalog'||path==='/catalog.json'){
    const required=loginRequired(env);
-    console.log('CATALOG_DEBUG:', { path, required, envReq: env.REQUIRE_YANDEX_LOGIN });
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
    const custom=await getCustomTracks(env);
+   const tracks=await catalogTracks(env,req);
    const list=await applyCatalogOverrides(env.DB,custom.length>0?[...tracks,...custom]:tracks);
    if(path==='/api/catalog'){
     const offset=Number(url.searchParams.get('offset')||0);if(!Number.isSafeInteger(offset)||offset<0||offset>list.length)return json({error:'offset'},400);
@@ -134,28 +164,33 @@ export default {async fetch(req,env){
   if(path.startsWith('/media/')){
    const required=loginRequired(env);
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
-   const response=await media(req,env,mediaSizes.get(decodeURIComponent(path))||mediaSizes.get(path));
+   const {sizes}=await catalogIndex(env,req);
+   const response=await media(req,env,sizes.get(decodeURIComponent(path))||sizes.get(path));
    if(!required)return response;
    const signed=new Response(response.body,response);
    signed.headers.set('Cache-Control','private, no-store');
    return signed;
   }
   if(path.startsWith('/api/custom-media/')){
-   return await serveCustomMedia(req,path,env);
+   const required=loginRequired(env);
+   if(required&&!await identity(req,env))return json({error:'login_required'},401);
+   return await serveCustomMedia(req,path,env,{private:required});
   }
   if(path==='/api/admin/catalog'){
    if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
    if(method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'origin'},403);
-   const list=await applyCatalogOverrides(env.DB,[...tracks,...await getCustomTracks(env)]);
+   const list=await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
    if(method==='PATCH')return saveCatalogOverride(req,env.DB,list);
    if(method==='GET'){const a=auditCatalog(list),offset=Math.max(0,Number(url.searchParams.get('offset'))||0);return json({...a,duplicateCount:a.duplicates.length,duplicates:a.duplicates.slice(offset,offset+12),missing:a.missing.slice(0,12),next:offset+12<a.duplicates.length?offset+12:null});}
    return json({error:'method'},405);
   }
   if(path.startsWith('/api/admin/')){
-   return await adminRoute(req,path,method,url,env,tracks.length);
+   return await adminRoute(req,path,method,url,env,(await catalogTracks(env,req)).length);
   }
   if(path === '/api/telegram/webhook'){
-   return await handleTelegramWebhook(req, env, tracks.length);
+   const secret=env.TELEGRAM_WEBHOOK_SECRET;
+   if(!secret||!safeEqual(req.headers.get('X-Telegram-Bot-Api-Secret-Token')||'',secret))return json({ok:true},401);
+   return await handleTelegramWebhook(req, env, (await catalogTracks(env,req)).length);
   }
   if(path === '/api/promo' && method === 'GET'){
    return await handlePublicPromo(env);
@@ -188,13 +223,14 @@ export default {async fetch(req,env){
   if(path.startsWith('/auth/')) return await auth(req,url,env);
   if(path==='/api/health' && (method==='GET' || method==='HEAD')){
    const custom=await getCustomTracks(env);
-   return json({ok:true,tracks:tracks.length+custom.length,loginConfigured:ready(env),loginRequired:loginRequired(env)});
+   return json({ok:true,tracks:(await catalogTracks(env,req)).length+custom.length,loginConfigured:ready(env),loginRequired:loginRequired(env)});
   }
   if(method!=='GET' && (req.headers.get('Origin')!==url.origin || !req.headers.get('Content-Type')?.startsWith('application/json'))) return json({error:'origin'},403);
   if(path==='/api/chart' && method==='GET'){
    return json({items:chartItems});
   }
   if(path==='/api/search-lyrics' && method==='GET'){
+   if(loginRequired(env)&&!await identity(req,env))return json({error:'login_required'},401);
    const q=url.searchParams.get('q')?.trim()||'';
    if(q.length<3 || !env.DB) return json({results:[]});
    const clean=q.replace(/[%_]/g,'').slice(0,60);
@@ -234,14 +270,15 @@ export default {async fetch(req,env){
     }
     return json({shotUrl:null, status:resp.status, reason:'not_ok'});
    }catch(e){
-    return json({shotUrl:null, err:e.message, reason:'catch'});
+    console.warn('video-shot failed', e?.name || 'error');
+    return json({shotUrl:null, reason:'unavailable'});
    }
   }
   if(path==='/api/import/resolve' && method==='POST')return await importPlaylist(req);
   const user=await identity(req,env);
   if(path==='/api/me' && method==='GET'){
    if(!user) return json({user:null,loginConfigured:ready(env),loginRequired:loginRequired(env)});
-   const allIds=await getTrackIds(env);
+   const allIds=await getTrackIds(env,req);
    const {results}=await env.DB.prepare('SELECT track FROM likes WHERE uid=? ORDER BY added DESC').bind(user.id).all();
    return json({user:{id:user.id,name:user.name,volume:user.volume,autoplay:Boolean(user.autoplay),motion:Boolean(user.motion),crossfade:Boolean(user.crossfade),wavePattern:user.wave_pattern,waveMark:user.wave_mark},taste:await readTaste(env.DB,user.id),likes:results.map(r=>r.track).filter(t=>allIds.has(t)),loginConfigured:ready(env),loginRequired:loginRequired(env)});
   }
@@ -252,8 +289,8 @@ export default {async fetch(req,env){
    if(method==='PUT')return writeTaste(req,db,user.id);
    return json({error:'method'},405);
   }
-  const allIds=await getTrackIds(env);
-  if(['/api/playback','/api/listening','/api/history','/api/stats'].includes(path))return activityRoute(req,path,db,user,[...tracks,...await getCustomTracks(env)]);
+  const allIds=await getTrackIds(env,req);
+  if(['/api/playback','/api/listening','/api/history','/api/stats'].includes(path))return activityRoute(req,path,db,user,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
   if(path==='/api/playlists'||path.startsWith('/api/playlists/')||path.startsWith('/api/playlist-invites/'))return await playlistRoute(req,path,db,user,allIds);
   if(path==='/api/chart/listen' && method==='POST'){
    const body=await readJSON(req);

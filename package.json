@@ -15,7 +15,9 @@
     "test": "node scripts/check.mjs",
     "import": "node scripts/import-music.mjs",
     "test:accounts": "node scripts/check-accounts.mjs",
-    "test:sources": "node scripts/check-sources.mjs"
+    "test:sources": "node scripts/check-sources.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "check:security": "node scripts/check-security.mjs"
   },
   "private": true
 }

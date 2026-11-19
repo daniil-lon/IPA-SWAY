@@ -1,6 +1,6 @@
 import {offlineCache,offlineRoot} from './offline-storage.js';
 
-const SHELL='sway-shell-v17';
+const SHELL='sway-shell-v18';
 const shellPaths=['/native-audio.js','/catalog-loader.js','/smart-search.js','/listening-account.js','/listening-stats.js','/next-stage.css','/','/offline.html','/manifest.webmanifest',
  '/style.css','/mobile.css','/wave.css','/browse.css','/player.css','/sway-glass.css','/sway-reference.css',
  '/app.js','/discovery.js','/cover-colors.js','/motion.js','/player-scene.js','/music-sources.js','/audio-transition.js','/system-media.js','/equalizer.js',

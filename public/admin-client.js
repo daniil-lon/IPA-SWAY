@@ -47,7 +47,7 @@ export function renderPromo(targetContainer) {
 
   container.hidden = false;
   container.innerHTML = `
-    <aside class="sway-promo-card glass" data-target="${escapeAttr(activePromo.target_url || '#home')}">
+    <aside class="sway-promo-card glass" data-target="${escapeAttr(safeHref(activePromo.target_url, '#home'))}">
       ${activePromo.cover_url ? `<img src="${escapeAttr(activePromo.cover_url)}" alt="" class="sway-promo-art">` : ''}
       <div class="sway-promo-info">
         <span class="sway-promo-badge">${escapeHTML(activePromo.badge || 'ПРОМО')}</span>
@@ -94,14 +94,15 @@ function showBroadcastToast(b) {
 
   const toast = document.createElement('aside');
   toast.id = `broadcast-${b.id}`;
-  toast.className = `sway-broadcast-toast glass sway-level-${b.level || 'info'}`;
+  const level = ['info', 'warning', 'success', 'critical', 'danger'].includes(b.level) ? b.level : 'info';
+  toast.className = `sway-broadcast-toast glass sway-level-${level}`;
   toast.setAttribute('role', 'alert');
   toast.innerHTML = `
     <div class="sway-broadcast-badge">📢</div>
     <div class="sway-broadcast-content">
       <strong class="sway-broadcast-title">${escapeHTML(b.title || 'Объявление')}</strong>
       <p class="sway-broadcast-msg">${escapeHTML(b.message)}</p>
-      ${b.action_label ? `<a href="${escapeAttr(b.action_url || '#home')}" class="btn sm primary sway-broadcast-btn">${escapeHTML(b.action_label)}</a>` : ''}
+      ${b.action_label ? `<a href="${escapeAttr(safeHref(b.action_url, '#home'))}" class="btn sm primary sway-broadcast-btn">${escapeHTML(b.action_label)}</a>` : ''}
     </div>
     <button type="button" class="btn icon sway-broadcast-close" aria-label="Закрыть">&times;</button>
   `;
@@ -188,5 +189,13 @@ function escapeHTML(str) {
 
 function escapeAttr(str) {
   if (!str) return '';
-  return String(str).replace(/"/g, '&quot;');
+  return String(str).replace(/[&<>"']/g, tag => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag]));
+}
+
+function safeHref(value, fallback = '#') {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  return /^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^https?:/i.test(raw) ? fallback : raw;
 }

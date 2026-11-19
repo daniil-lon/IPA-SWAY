@@ -3,7 +3,39 @@ import { json, readJSON } from './profile-store.mjs';
 const adminCookieName = 'sway_admin_token';
 const now = () => Math.floor(Date.now() / 1000);
 const base64 = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unbase64 = value => {
+  const normalized = String(value).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(normalized + '='.repeat((4 - normalized.length % 4) % 4)), c => c.charCodeAt(0));
+};
 const hash = async v => base64(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v))));
+
+// Admin passwords are stored as salted PBKDF2-SHA256. Legacy salted and unsalted
+// SHA-256 values are still accepted once and upgraded on the next successful login.
+const PASSWORD_SCHEME = 'pbkdf2';
+const PASSWORD_ITERATIONS = 100000;
+async function derivePassword(password, salt, iterations) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, key, 256);
+  return base64(new Uint8Array(bits));
+}
+async function createPasswordHash(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return `${PASSWORD_SCHEME}$${PASSWORD_ITERATIONS}$${base64(salt)}$${await derivePassword(password, salt, PASSWORD_ITERATIONS)}`;
+}
+async function matchesPasswordHash(password, stored) {
+  if (typeof stored !== 'string' || !stored) return false;
+  const parts = stored.split('$');
+  if (parts.length === 4 && parts[0] === PASSWORD_SCHEME) {
+    const iterations = Number(parts[1]);
+    if (!Number.isSafeInteger(iterations) || iterations < 10000 || iterations > 1000000) return false;
+    try {
+      return safeEqual(await derivePassword(password, unbase64(parts[2]), iterations), parts[3]);
+    } catch {
+      return false;
+    }
+  }
+  return safeEqual(await hash(password), stored) || safeEqual(await hash('sway_salt_' + password), stored);
+}
 
 function cookieValue(req, name) {
   return req.headers.get('Cookie')?.split(';').map(s => s.trim()).find(s => s.startsWith(name + '='))?.slice(name.length + 1);
@@ -17,7 +49,7 @@ function clientIp(req) {
   return req.headers.get('CF-Connecting-IP') || req.headers.get('X-Forwarded-For')?.split(',')[0].trim() || '127.0.0.1';
 }
 
-function safeEqual(a, b) {
+export function safeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
   const aBuf = new TextEncoder().encode(a), bBuf = new TextEncoder().encode(b);
   if (aBuf.byteLength !== bBuf.byteLength) return false;
@@ -41,13 +73,16 @@ async function verifyPassword(password, env) {
   if (!env.DB) return false;
   const row = await env.DB.prepare("SELECT value FROM admin_config WHERE key = 'master_password_hash'").first();
   if (!row?.value) return false;
-  const candidateHash = await hash(password);
-  return safeEqual(candidateHash, row.value)||safeEqual(await hash('sway_salt_'+password),row.value);
+  const ok = await matchesPasswordHash(password, row.value);
+  if (ok && !row.value.startsWith(PASSWORD_SCHEME + '$')) {
+    try { await setAdminPassword(password, env); } catch (e) { console.error('Password upgrade failed', e?.message); }
+  }
+  return ok;
 }
 
 export async function setAdminPassword(password, env) {
   if (!env.DB || typeof password !== 'string' || password.length < 8) return false;
-  const h = await hash(password);
+  const h = await createPasswordHash(password);
   await env.DB.prepare(`
     INSERT INTO admin_config (key, value, updated_at) VALUES ('master_password_hash', ?, ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
@@ -62,8 +97,9 @@ export async function verifyAdminSession(req, env) {
   if (!env.DB) return false;
   try {
     const hashed = await hash(token);
-    const row = await env.DB.prepare("SELECT COALESCE(expiry, expires_at) AS exp FROM admin_sessions WHERE hash = ? OR token = ?").bind(hashed, token).first();
-    if (!row || row.exp < now()) return false;
+    const row = await env.DB.prepare("SELECT * FROM admin_sessions WHERE hash = ? LIMIT 1").bind(hashed).first();
+    const expiry = Number(row?.expiry ?? row?.expires_at);
+    if (!row || !Number.isFinite(expiry) || expiry < now()) return false;
     return true;
   } catch (e) {
     console.error('verifyAdminSession error', e);
@@ -76,8 +112,15 @@ async function createAdminSession(env, maxAge = 86400 * 7) {
   const expiresAt = now() + maxAge;
   if (env.DB) {
     const hashed = await hash(token);
-    await env.DB.prepare("INSERT INTO admin_sessions (token, hash, created_at, expiry, expires_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(token, hashed, now(), expiresAt, expiresAt).run();
+    try {
+      // Canonical schema (migrations/0003): only the hash is persisted.
+      await env.DB.prepare("INSERT INTO admin_sessions (hash, created_at, expiry) VALUES (?, ?, ?)")
+        .bind(hashed, now(), expiresAt).run();
+    } catch {
+      // Compatibility with deployments whose table still requires the legacy plaintext column.
+      await env.DB.prepare("INSERT INTO admin_sessions (token, hash, created_at, expiry, expires_at) VALUES (?, ?, ?, ?, ?)")
+        .bind(token, hashed, now(), expiresAt, expiresAt).run();
+    }
   }
   return { token, maxAge };
 }
@@ -144,7 +187,7 @@ export async function getCustomTracks(env) {
   }
 }
 
-export async function serveCustomMedia(req, path, env) {
+export async function serveCustomMedia(req, path, env, { private: isPrivate = false } = {}) {
   const match = path.match(/^\/api\/custom-media\/([a-zA-Z0-9_-]+)\.mp3$/);
   if (!match || !env.DB) return new Response('Not Found', { status: 404 });
   const trackId = match[1];
@@ -176,7 +219,7 @@ export async function serveCustomMedia(req, path, env) {
         'Content-Length': String(end-start+1),
         ...(status===206?{'Content-Range':`bytes ${start}-${end}/${totalLen}`}:{ }),
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000'
+        'Cache-Control': isPrivate ? 'private, no-store' : 'public, max-age=31536000'
       }
     });
   } catch (e) {
@@ -287,15 +330,21 @@ export async function handleTelegramWebhook(req, env, staticTracksCount = 7000) 
     }
   }
 
-  // Verify chat authorization
-  if (adminChatId && String(chatId) !== String(adminChatId)) {
+  // Verify chat authorization. An unbound bot must never issue an admin session.
+  if (!adminChatId) {
+    await send('🔒 Бот не привязан к администратору. Отправьте <code>/bind &lt;пароль&gt;</code>.');
+    return json({ ok: true });
+  }
+  if (String(chatId) !== String(adminChatId)) {
     await send('🔒 Доступ запрещен. Отправьте <code>/bind &lt;пароль&gt;</code> для авторизации.');
     return json({ ok: true });
   }
 
+  const adminOrigin = env.PUBLIC_ORIGIN || 'https://music.academmix.ru';
+
   if (text === '/start') {
     const session = await createAdminSession(env, 3600);
-    const magicLink = `https://music.academmix.ru/api/admin/magic-login?token=${session.token}`;
+    const magicLink = `${adminOrigin}/api/admin/magic-login?token=${session.token}`;
     await send(
       `👋 <b>Панель управления Sway Music</b>\n\n` +
       `Команды:\n` +
@@ -306,7 +355,7 @@ export async function handleTelegramWebhook(req, env, staticTracksCount = 7000) 
       `• /promo — Текущий промо-баннер`,
       {
         inline_keyboard: [
-          [{ text: '⚡ Открыть админ-панель', web_app: { url: `https://music.academmix.ru/admin.html?token=${session.token}` } }],
+          [{ text: '⚡ Открыть админ-панель', web_app: { url: `${adminOrigin}/admin.html?token=${session.token}` } }],
           [{ text: '🔑 Быстрый вход в браузере', url: magicLink }]
         ]
       }
@@ -316,7 +365,7 @@ export async function handleTelegramWebhook(req, env, staticTracksCount = 7000) 
 
   if (text === '/login') {
     const session = await createAdminSession(env, 3600);
-    const magicLink = `https://music.academmix.ru/api/admin/magic-login?token=${session.token}`;
+    const magicLink = `${adminOrigin}/api/admin/magic-login?token=${session.token}`;
     await send(
       `🔑 <b>Ваша ссылка для входа в Sway Admin:</b>\n\n` +
       `<a href="${magicLink}">Нажмите сюда для входа</a>\n\n` +
@@ -383,14 +432,21 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
   const pathname = url.pathname;
   if(method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'origin'},403);
 
-  // 1. Setup Password if no password exists yet
+  // 1. One-time password setup. Disabled unless ADMIN_SETUP_TOKEN is provisioned as a Worker secret.
   if (pathname === '/api/admin/setup' && method === 'POST') {
+    const setupToken = env.ADMIN_SETUP_TOKEN;
+    if (!setupToken || typeof setupToken !== 'string' || setupToken.length < 16) {
+      return json({ error: 'not_found' }, 404);
+    }
+    if (!safeEqual(req.headers.get('X-Admin-Setup-Token') || '', setupToken)) {
+      return json({ error: 'forbidden' }, 403);
+    }
     if (await hasAdminPassword(env)) {
       return json({ error: 'Пароль уже настроен' }, 403);
     }
     const body = await readJSON(req);
     const pw = (body?.password || '').trim();
-    if (pw.length < 8) return json({ error: 'Пароль должен быть от 8 символов' }, 400);
+    if (pw.length < 12) return json({ error: 'Пароль должен быть от 12 символов' }, 400);
     await setAdminPassword(pw, env);
     const session = await createAdminSession(env);
     return new Response(JSON.stringify({ success: true, token: session.token }), {
@@ -402,21 +458,28 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
     });
   }
 
-  // 2. Magic Link Login (from Telegram bot)
+  // 2. Magic Link Login (from Telegram bot). The link is single-use and is
+  // exchanged for a fresh short-lived session cookie.
   if (pathname === '/api/admin/magic-login' && method === 'GET') {
     const token = url.searchParams.get('token');
-    if (!token || !env.DB) {
+    if (!token || !/^[A-Za-z0-9_-]{43,64}$/.test(token) || !env.DB) {
       return new Response('Недействительная ссылка', { status: 400 });
     }
-    const session = await env.DB.prepare("SELECT expiry AS expires_at FROM admin_sessions WHERE hash = ?").bind(await hash(token)).first();
-    if (!session || session.expires_at < now()) {
+    const hashed = await hash(token);
+    const session = await env.DB.prepare("SELECT * FROM admin_sessions WHERE hash = ? LIMIT 1").bind(hashed).first();
+    const expiresAt = Number(session?.expiry ?? session?.expires_at);
+    if (!session || !Number.isFinite(expiresAt) || expiresAt < now()) {
       return new Response('Срок действия ссылки истек. Запросите новую ссылку через Telegram бота: /login', { status: 401 });
     }
+    await env.DB.prepare("DELETE FROM admin_sessions WHERE hash = ?").bind(hashed).run();
+    const fresh = await createAdminSession(env, 3600);
     return new Response(null, {
       status: 302,
       headers: {
         'Location': '/admin.html',
-        'Set-Cookie': adminCookie(url, token, 86400 * 7)
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+        'Set-Cookie': adminCookie(url, fresh.token, fresh.maxAge)
       }
     });
   }
@@ -447,14 +510,12 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
     const body = await readJSON(req);
     const pw = (body?.password || '').trim();
 
-    // Rate limiting
+    // Rate limiting (canonical schema: admin_attempts(ip, attempts, last_attempt))
+    const stamp = now(), windowSeconds = 900, maxAttempts = 5;
     if (env.DB) {
       try {
-        const windowStart = now() - 900;
-        const attempts = await env.DB.prepare(
-          "SELECT count(*) AS c FROM admin_attempts WHERE ip = ? AND timestamp > ? AND success = 0"
-        ).bind(ip, windowStart).first();
-        if ((attempts?.c || 0) >= 5) {
+        const row = await env.DB.prepare("SELECT attempts, last_attempt FROM admin_attempts WHERE ip = ?").bind(ip).first();
+        if (row && Number(row.last_attempt) > stamp - windowSeconds && Number(row.attempts) >= maxAttempts) {
           return json({ error: 'Слишком много попыток. Подождите 15 минут.' }, 429);
         }
       } catch (e) {
@@ -465,9 +526,16 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
     const ok = await verifyPassword(pw, env);
     if (env.DB) {
       try {
-        await env.DB.prepare(
-          "INSERT INTO admin_attempts (ip, timestamp, success) VALUES (?, ?, ?)"
-        ).bind(ip, now(), ok ? 1 : 0).run();
+        if (ok) {
+          await env.DB.prepare("DELETE FROM admin_attempts WHERE ip = ?").bind(ip).run();
+        } else {
+          await env.DB.prepare(`
+            INSERT INTO admin_attempts (ip, attempts, last_attempt) VALUES (?, 1, ?)
+            ON CONFLICT(ip) DO UPDATE SET
+              attempts = CASE WHEN admin_attempts.last_attempt > ? THEN admin_attempts.attempts + 1 ELSE 1 END,
+              last_attempt = ?
+          `).bind(ip, stamp, stamp - windowSeconds, stamp).run();
+        }
       } catch (e) {
         console.error('Log attempt error:', e);
       }

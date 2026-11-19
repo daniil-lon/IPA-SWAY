@@ -30,15 +30,14 @@
         } catch {}
       }
 
-      // Check URL query token from Magic link
+      // Exchange a magic-link token for a session cookie before loading the panel.
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get('token');
       if (urlToken) {
-        // Exchange magic token
-        authScreen.classList.add('hidden');
         window.history.replaceState({}, document.title, '/admin.html');
-        loadOverview();
-        return;
+        try {
+          await fetch('/api/admin/magic-login?token=' + encodeURIComponent(urlToken), { credentials: 'same-origin' });
+        } catch {}
       }
 
       try {
