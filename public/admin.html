@@ -4,323 +4,83 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Sway Music — Панель управления</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="/art/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/admin.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="/admin.js" defer></script>
-
-<link rel="stylesheet" href="/admin-catalog.css">
+  <script type="module" src="/admin/app.js"></script>
 </head>
 <body>
 
-  <!-- Auth Screen Modal -->
-  <div id="auth-screen">
+  <!-- Auth screen -->
+  <div id="auth-screen" class="auth-screen">
     <div class="auth-card">
-      <img src="/art/logo.svg" alt="Sway" class="auth-logo" width="48" height="48">
+      <img src="/art/logo.svg" alt="Sway" class="auth-logo" width="54" height="54">
       <h2 class="auth-title">Sway Admin</h2>
       <p class="auth-desc" id="auth-subtitle">Вход в панель управления проектом</p>
       <form id="auth-form">
-        <div class="form-group">
+        <div class="form-group" style="text-align:left">
           <input type="password" id="auth-password" class="form-input" placeholder="Пароль администратора" required autocomplete="current-password" autofocus>
         </div>
-        <button type="submit" class="btn primary" style="width: 100%; margin-bottom: 12px;">Войти в панель</button>
-        <div id="auth-tg-hint" style="font-size: 12px; color: var(--text-muted); margin-top: 14px;">
-          Авторизоваться также можно в Telegram-боте командой <code>/login</code>
-        </div>
+        <button type="submit" class="btn primary block" style="margin-top:12px">Войти в панель</button>
       </form>
+      <p class="auth-hint" id="auth-tg-hint">
+        Также можно войти через Telegram-бота командой <code>/login</code>.
+      </p>
     </div>
   </div>
 
-  <!-- Header -->
-  <header>
-    <div class="logo-badge">
-      <img src="/art/logo.svg" alt="Sway" width="28" height="28">
-      <span>Sway Admin</span>
-      <span class="badge-tag">Pro</span>
+  <!-- Shell -->
+  <div id="admin-shell" class="shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <img src="/art/logo.svg" alt="Sway" width="34" height="34">
+        <div>
+          <div class="brand-name">Sway Admin</div>
+          <div class="brand-sub">Панель управления</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav" aria-label="Разделы панели">
+        <div class="nav-label">Проект</div>
+        <button class="nav-item active" type="button" data-view="overview"><span class="nav-ico">◈</span><span>Обзор</span></button>
+        <button class="nav-item" type="button" data-view="catalog"><span class="nav-ico">♪</span><span>Каталог</span><span class="nav-badge" id="badge-catalog"></span></button>
+        <button class="nav-item" type="button" data-view="lyrics"><span class="nav-ico">✎</span><span>Тексты и караоке</span></button>
+
+        <div class="nav-label">Контент</div>
+        <button class="nav-item" type="button" data-view="content"><span class="nav-ico">✦</span><span>Промо и рассылки</span></button>
+        <button class="nav-item" type="button" data-view="analytics"><span class="nav-ico">◔</span><span>Аналитика</span></button>
+
+        <div class="nav-label">Люди</div>
+        <button class="nav-item" type="button" data-view="users"><span class="nav-ico">☺</span><span>Пользователи</span></button>
+
+        <div class="nav-label">Система</div>
+        <button class="nav-item" type="button" data-view="settings"><span class="nav-ico">⚙</span><span>Настройки</span></button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div id="sidebar-status">Sway Music · Admin</div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button type="button" class="btn icon menu-btn" id="menu-btn" aria-label="Меню">☰</button>
+        <div>
+          <div class="crumb" id="view-crumb">Sway Music</div>
+          <h1 id="view-title">Обзор</h1>
+        </div>
+        <div class="topbar-actions">
+          <a href="/" target="_blank" rel="noopener" class="btn sm">🎵 <span class="hide-sm">Открыть плеер</span></a>
+          <button type="button" id="logout-btn" class="btn sm danger">Выйти</button>
+        </div>
+      </header>
+
+      <main id="view" class="view" tabindex="-1"></main>
     </div>
-    <div class="header-actions">
-      <a href="/" target="_blank" class="btn sm">🎵 Открыть плеер</a>
-      <button type="button" id="logout-btn" class="btn sm danger">Выйти</button>
-    </div>
-  </header>
+  </div>
 
-  <!-- Container -->
-  <main class="admin-container">
-    <nav class="nav-tabs" role="tablist">
-      <button class="nav-tab active" data-tab="overview">📊 Обзор и метрики</button>
-      <button class="nav-tab" data-tab="promo">✨ Промо-баннер</button>
-      <button class="nav-tab" data-tab="broadcasts">📢 Рассылки</button>
-      <button class="nav-tab" data-tab="editorial">⭐ Плейлисты редакции</button>
-      <button class="nav-tab" data-tab="lyrics">🎙 Тексты и караоке</button>
-      <button class="nav-tab" data-tab="settings">⚙️ Настройки и Telegram</button>
-    </nav>
+  <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
-    <!-- Tab 1: Overview -->
-    <section id="tab-overview" class="tab-content">
-      <div class="grid-stats">
-        <div class="stat-card">
-          <div class="stat-label">Каталог треков</div>
-          <div class="stat-val" id="stat-tracks">7,000</div>
-          <div class="stat-sub" id="stat-tracks-sub">Базовых песен в CDN</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Слушателей в базе</div>
-          <div class="stat-val" id="stat-listeners">—</div>
-          <div class="stat-sub">Аккаунты в Cloudflare D1</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Караоке с таймингами</div>
-          <div class="stat-val" id="stat-lyrics">—</div>
-          <div class="stat-sub" id="stat-lyrics-sub">Синхронных текстов</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Поставлено лайков</div>
-          <div class="stat-val" id="stat-likes">—</div>
-          <div class="stat-sub">Коллекция «Мне нравится»</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">
-          <span>⚡ Быстрые действия сервера</span>
-        </div>
-        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
-          Управление инфраструктурой и мгновенная инвалидация кэша по всей глобальной сети Cloudflare Edge.
-        </p>
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-          <button type="button" id="purge-cache-btn" class="btn primary">🔄 Сбросить кэш Cloudflare</button>
-          <button type="button" id="refresh-stats-btn" class="btn">📊 Обновить показатели</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tab 2: Promo Banner -->
-    <section id="tab-promo" class="tab-content hidden">
-      <div class="card">
-        <div class="card-title">
-          <span>✨ Управление промо-баннером</span>
-        </div>
-        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">
-          Настраивайте рекламный или премьерный баннер на главном экране и во вкладке поиска для всех слушателей.
-        </p>
-        <form id="promo-form">
-          <input type="hidden" id="promo-id">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="promo-title">Заголовок баннера *</label>
-              <input type="text" id="promo-title" class="form-input" placeholder="Например: Новинки этой пятницы" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="promo-badge">Бейдж / Метка</label>
-              <input type="text" id="promo-badge" class="form-input" placeholder="НОВИНКА / ПРЕМЬЕРА / ХИТ" value="НОВИНКА">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="promo-subtitle">Подзаголовок / Описание</label>
-            <input type="text" id="promo-subtitle" class="form-input" placeholder="Свежие релизы, покорившие чарты недели">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="promo-cover">Ссылка на обложку / арт (необязательно)</label>
-              <input type="text" id="promo-cover" class="form-input" placeholder="https://... или /art/...">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="promo-target">Действие при клике (URL / хеш)</label>
-              <input type="text" id="promo-target" class="form-input" placeholder="#home или ссылка на плейлист" value="#home">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="switch-label">
-              <input type="checkbox" id="promo-active" checked>
-              <span>Показывать промо-баннер слушателям</span>
-            </label>
-          </div>
-          <div style="display: flex; gap: 12px; margin-top: 20px;">
-            <button type="submit" class="btn primary">Сохранить баннер</button>
-            <button type="button" id="promo-delete-btn" class="btn danger">Отключить и удалить</button>
-          </div>
-        </form>
-
-        <div class="preview-box">
-          <div class="preview-title">Предпросмотр баннера в приложении</div>
-          <div id="promo-preview-card" style="padding: 16px 20px; background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2)); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px;">
-            <div>
-              <span id="preview-badge" style="font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #a855f7; color: #fff;">НОВИНКА</span>
-              <h4 id="preview-title" style="margin-top: 6px; font-size: 16px; font-weight: 700;">Новинки этой пятницы</h4>
-              <p id="preview-sub" style="font-size: 13px; color: #bbb; margin-top: 2px;">Свежие релизы недели</p>
-            </div>
-            <button type="button" class="btn sm primary">Слушать</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tab 3: Broadcasts -->
-    <section id="tab-broadcasts" class="tab-content hidden">
-      <div class="card">
-        <div class="card-title">
-          <span>📢 Создать рассылку / объявление</span>
-        </div>
-        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">
-          Срочные объявления и новости появляются у слушателей в виде стильного баннера-уведомления при открытии приложения.
-        </p>
-        <form id="broadcast-form">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="broad-title">Заголовок</label>
-              <input type="text" id="broad-title" class="form-input" value="Объявление" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="broad-level">Тип / Важность</label>
-              <select id="broad-level" class="form-select">
-                <option value="info">Информация (фиолетовый)</option>
-                <option value="success">Событие / Премьера (зеленый)</option>
-                <option value="warning">Важное предупреждение (желтый)</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="broad-msg">Текст сообщения *</label>
-            <textarea id="broad-msg" class="form-textarea" placeholder="Например: Добавлено более 1 000 новых треков и синхронные тексты караоке!" required></textarea>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="broad-action-label">Текст кнопки действия (необязательно)</label>
-              <input type="text" id="broad-action-label" class="form-input" placeholder="Попробовать / Открыть">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="broad-action-url">Ссылка кнопки</label>
-              <input type="text" id="broad-action-url" class="form-input" placeholder="#home или ссылка">
-            </div>
-          </div>
-          <button type="submit" class="btn primary">📢 Отправить всем слушателям</button>
-        </form>
-      </div>
-
-      <div class="card">
-        <div class="card-title">
-          <span>📋 Активные и недавние рассылки</span>
-        </div>
-        <div id="broadcasts-list" class="item-list">
-          <p style="color: var(--text-muted); font-size: 14px;">Загрузка рассылок...</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tab 4: Editorial Playlists -->
-    <section id="tab-editorial" class="tab-content hidden">
-      <div class="card">
-        <div class="card-title">
-          <span>⭐ Создание плейлиста от редакции</span>
-        </div>
-        <form id="editorial-form">
-          <input type="hidden" id="edit-id">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="edit-title">Название плейлиста *</label>
-              <input type="text" id="edit-title" class="form-input" placeholder="Например: Выбор редакции" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="edit-badge">Бейдж / Метка</label>
-              <input type="text" id="edit-badge" class="form-input" value="Редакция" placeholder="Редакция / Топ 100">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="edit-desc">Описание</label>
-            <input type="text" id="edit-desc" class="form-input" placeholder="Главные треки этой недели">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="edit-cover">Обложка плейлиста (URL)</label>
-              <input type="text" id="edit-cover" class="form-input" placeholder="/art/logo.svg или https://...">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="edit-order">Порядок отображения (0 - первый)</label>
-              <input type="number" id="edit-order" class="form-input" value="0">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="edit-tracks">ID треков (через запятую или по одному на строке)</label>
-            <textarea id="edit-tracks" class="form-textarea" placeholder="Вставьте ID треков из каталога..."></textarea>
-          </div>
-          <div class="form-group">
-            <label class="switch-label">
-              <input type="checkbox" id="edit-published" checked>
-              <span>Опубликовать в каталоге для всех слушателей</span>
-            </label>
-          </div>
-          <div style="display: flex; gap: 12px; margin-top: 16px;">
-            <button type="submit" class="btn primary">Сохранить плейлист</button>
-            <button type="button" id="edit-reset-btn" class="btn">Очистить форму</button>
-          </div>
-        </form>
-      </div>
-
-      <div class="card">
-        <div class="card-title">
-          <span>📚 Список плейлистов редакции</span>
-        </div>
-        <div id="editorial-list" class="item-list">
-          <p style="color: var(--text-muted); font-size: 14px;">Загрузка плейлистов...</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tab 5: Lyrics Editor -->
-    <section id="tab-lyrics" class="tab-content hidden">
-      <div class="card">
-        <div class="card-title">
-          <span>🎙 Редактор караоке и синхронизации</span>
-        </div>
-        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">
-          Поиск текстов по базе D1 (более 4 000 треков) и корректировка временных меток [mm:ss.xx].
-        </p>
-        <div class="form-group">
-          <label class="form-label" for="lyrics-track-id">ID трека для редактирования</label>
-          <div style="display: flex; gap: 10px;">
-            <input type="text" id="lyrics-track-id" class="form-input" placeholder="Введите track id, например: ya-123456">
-            <button type="button" id="lyrics-load-btn" class="btn primary">Загрузить</button>
-          </div>
-        </div>
-        <form id="lyrics-editor-form" class="hidden">
-          <div class="form-group">
-            <label class="form-label" for="lyrics-lrc-text">Синхронизированный текст (LRC с метками времени)</label>
-            <textarea id="lyrics-lrc-text" class="form-textarea" style="min-height: 220px; font-family: monospace; font-size: 13px;" placeholder="[00:12.50] Первая строка&#10;[00:16.80] Вторая строка"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="switch-label">
-              <input type="checkbox" id="lyrics-is-synced" checked>
-              <span>Полноэкранное караоке активно для этого трека</span>
-            </label>
-          </div>
-          <button type="submit" class="btn primary">Сохранить караоке в D1</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- Tab 6: Settings & Telegram -->
-    <section id="tab-settings" class="tab-content hidden">
-      <div class="card">
-        <div class="card-title">
-          <span>🤖 Интеграция с Telegram-ботом</span>
-        </div>
-        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
-          Бот позволяет получать уведомления, статистику, отправлять рассылки и входить в админку с телефона в 1 клик.
-        </p>
-        <div style="background: rgba(14, 12, 22, 0.7); border-radius: 12px; padding: 16px; margin-bottom: 20px; font-size: 14px; line-height: 1.6;">
-          <strong>Как подключить Telegram-бота:</strong><br>
-          1. Создайте бота в <a href="https://t.me/BotFather" target="_blank">@BotFather</a> и получите токен бота.<br>
-          2. Задайте Webhook URL бота:<br>
-          <code>https://music.academmix.ru/api/telegram/webhook</code><br>
-          3. Отправьте боту команду <code>/bind &lt;ваш_пароль&gt;</code>, чтобы связать ваш Telegram с панелью.
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <div id="admin-toast"></div>
-
-  
-<script type="module" src="/admin-catalog.js"></script>
 </body>
 </html>

@@ -1,4 +1,9 @@
 import { json, readJSON } from './profile-store.mjs';
+import { audit, flags, setFlag, overview, analytics, auditList, systemInfo, exportTable, purgeCache } from './admin-ops.mjs';
+import { catalogAdminRoute } from './admin-catalog.mjs';
+import { lyricsAdminRoute } from './admin-lyrics.mjs';
+import { usersAdminRoute } from './admin-users.mjs';
+import { uploadsAdminRoute } from './admin-uploads.mjs';
 
 const adminCookieName = 'sway_admin_token';
 const now = () => Math.floor(Date.now() / 1000);
@@ -67,7 +72,7 @@ export async function hasAdminPassword(env) {
   return Boolean(row?.value);
 }
 
-async function verifyPassword(password, env) {
+export async function verifyPassword(password, env) {
   if (typeof password !== 'string' || !password) return false;
   if (env.ADMIN_KEY && safeEqual(password, env.ADMIN_KEY)) return true;
   if (!env.DB) return false;
@@ -192,6 +197,46 @@ export async function serveCustomMedia(req, path, env, { private: isPrivate = fa
   if (!match || !env.DB) return new Response('Not Found', { status: 404 });
   const trackId = match[1];
 
+  // R2 is the preferred store for admin uploads; D1 chunks remain as a fallback
+  // for deployments that do not have a MEDIA_BUCKET binding.
+  if (env.MEDIA_BUCKET) {
+    try {
+      const key = 'custom/' + trackId + '.mp3';
+      const range = req.headers.get('Range');
+      if (req.method === 'HEAD') {
+        const head = await env.MEDIA_BUCKET.head(key);
+        if (!head) return new Response('Not Found', { status: 404 });
+        return new Response(null, {
+          status: 200,
+          headers: {
+            'Content-Type': 'audio/mpeg',
+            'Content-Length': String(head.size),
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': isPrivate ? 'private, no-store' : 'public, max-age=31536000'
+          }
+        });
+      }
+      const object = await env.MEDIA_BUCKET.get(key, range ? { range: req.headers } : undefined);
+      if (object) {
+        const headers = new Headers();
+        if (typeof object.writeHttpMetadata === 'function') object.writeHttpMetadata(headers);
+        headers.set('Content-Type', 'audio/mpeg');
+        headers.set('Accept-Ranges', 'bytes');
+        headers.set('Cache-Control', isPrivate ? 'private, no-store' : 'public, max-age=31536000');
+        if (object.size) headers.set('Content-Length', String(object.size));
+        if (object.range?.offset !== undefined) {
+          const start = object.range.offset;
+          const length = object.range.length ?? object.size;
+          headers.set('Content-Range', 'bytes ' + start + '-' + (start + length - 1) + '/' + object.size);
+          return new Response(object.body, { status: 206, headers });
+        }
+        return new Response(object.body, { status: 200, headers });
+      }
+    } catch (error) {
+      console.error('R2 custom media error', error?.message);
+    }
+  }
+
   try {
     const chunks = await env.DB.prepare("SELECT data AS chunk_data FROM custom_audio_chunks WHERE track_id = ? ORDER BY chunk_index ASC").bind(trackId).all();
     if (!chunks.results?.length) return new Response('Not Found', { status: 404 });
@@ -234,6 +279,8 @@ export async function handlePublicPromo(env) {
     SELECT id, title, subtitle, badge, cover_url, target_url
     FROM promo_banners
     WHERE is_active = 1
+      AND (starts_at = 0 OR starts_at <= unixepoch())
+      AND (ends_at = 0 OR ends_at > unixepoch())
     ORDER BY updated_at DESC LIMIT 1
   `).first();
   return json({ success: true, promo: row || null });
@@ -245,6 +292,8 @@ export async function handlePublicEditorialPlaylists(env) {
     SELECT id, slug, title, description, cover_url, badge, track_ids, sort_order, updated_at
     FROM editorial_playlists
     WHERE is_published = 1
+      AND (starts_at = 0 OR starts_at <= unixepoch())
+      AND (ends_at = 0 OR ends_at > unixepoch())
     ORDER BY sort_order ASC, updated_at DESC
   `).all();
 
@@ -272,7 +321,8 @@ export async function handlePublicActiveBroadcasts(env) {
   const { results = [] } = await env.DB.prepare(`
     SELECT id, title, message, level, action_label, action_url, expires_at, created_at
     FROM broadcast_messages
-    WHERE expires_at IS NULL OR expires_at > ?
+    WHERE (expires_at IS NULL OR expires_at > ?)
+      AND (starts_at = 0 OR starts_at <= unixepoch())
     ORDER BY created_at DESC LIMIT 5
   `).bind(t).all();
   return json({ success: true, broadcasts: results });
@@ -428,7 +478,7 @@ export async function handleTelegramWebhook(req, env, staticTracksCount = 7000) 
 }
 
 // Full Admin Router
-export async function adminRoute(req, path, method, url, env, staticTracksCount = 7000) {
+export async function adminRoute(req, path, method, url, env, staticTracksCount = 7000, context = {}) {
   const pathname = url.pathname;
   if(method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'origin'},403);
 
@@ -585,37 +635,123 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
     return json({ error: 'Требуется авторизация администратора' }, 401);
   }
 
-  // 7. System Overview & Metrics
-  if (pathname === '/api/admin/overview' && method === 'GET') {
-    let listeners = 0, likes = 0, playlists = 0, customTracks = 0, lyricsTotal = 0, lyricsSynced = 0;
-    let promoActive = 0, broadcastsCount = 0;
+  const adminCtx = {
+    req, path: pathname, method, url, env, staticTracksCount,
+    ctx: context.ctx || null,
+    loadTracks: context.loadTracks || (async () => [])
+  };
 
-    if (env.DB) {
-      listeners = (await env.DB.prepare("SELECT COUNT(*) as c FROM users").first())?.c || 0;
-      likes = (await env.DB.prepare("SELECT COUNT(*) as c FROM likes").first())?.c || 0;
-      playlists = (await env.DB.prepare("SELECT COUNT(*) as c FROM playlists").first())?.c || 0;
-      customTracks = (await env.DB.prepare("SELECT COUNT(*) as c FROM custom_tracks").first())?.c || 0;
-      lyricsTotal = (await env.DB.prepare("SELECT COUNT(*) as c FROM track_lyrics").first())?.c || 0;
-      lyricsSynced = (await env.DB.prepare("SELECT COUNT(*) as c FROM track_lyrics WHERE synced = 1").first())?.c || 0;
-      promoActive = (await env.DB.prepare("SELECT COUNT(*) as c FROM promo_banners WHERE is_active = 1").first())?.c || 0;
-      broadcastsCount = (await env.DB.prepare("SELECT COUNT(*) as c FROM broadcast_messages").first())?.c || 0;
-    }
+  // Domain modules keep this file small: catalog, lyrics, users and moderation.
+  const delegated = await catalogAdminRoute(adminCtx)
+    || await lyricsAdminRoute(adminCtx)
+    || await usersAdminRoute(adminCtx)
+    || await uploadsAdminRoute(adminCtx);
+  if (delegated) return delegated;
 
+  // 6a. Change password (keeps the current session, revokes the rest).
+  if (pathname === '/api/admin/password' && method === 'POST') {
+    const body = await readJSON(req, 8000);
+    const current = String(body?.currentPassword || '');
+    const next = String(body?.newPassword || '').trim();
+    if (next.length < 12) return json({ error: 'Новый пароль должен быть от 12 символов' }, 400);
+    if (!await verifyPassword(current, env)) return json({ error: 'Текущий пароль неверен' }, 403);
+    await setAdminPassword(next, env);
+    const token = cookieValue(req, adminCookieName);
+    const currentHash = token ? await hash(token) : '';
+    if (env.DB) await env.DB.prepare('DELETE FROM admin_sessions WHERE hash != ?').bind(currentHash).run();
+    await audit(env, 'admin.password', '', 'changed');
+    return json({ ok: true });
+  }
+
+  // 6b. Active admin sessions.
+  if (pathname === '/api/admin/sessions' && method === 'GET') {
+    if (!env.DB) return json({ items: [] });
+    const token = cookieValue(req, adminCookieName);
+    const currentHash = token ? await hash(token) : '';
+    const { results = [] } = await env.DB.prepare('SELECT hash, created_at, expiry FROM admin_sessions ORDER BY created_at DESC').all();
     return json({
-      success: true,
-      stats: {
-        staticTracks: staticTracksCount,
-        customTracks,
-        totalTracks: staticTracksCount + customTracks,
-        listeners,
-        likes,
-        playlists,
-        lyricsTotal,
-        lyricsSynced,
-        promoActive,
-        broadcastsCount
+      items: results.map(row => ({
+        id: row.hash.slice(0, 10),
+        created: row.created_at,
+        expiry: row.expiry,
+        current: row.hash === currentHash
+      }))
+    });
+  }
+
+  if (pathname === '/api/admin/sessions/revoke' && method === 'POST') {
+    if (!env.DB) return json({ error: 'D1 недоступна' }, 503);
+    const body = await readJSON(req, 4000);
+    const token = cookieValue(req, adminCookieName);
+    const currentHash = token ? await hash(token) : '';
+    if (body?.all) {
+      await env.DB.prepare('DELETE FROM admin_sessions WHERE hash != ?').bind(currentHash).run();
+      await audit(env, 'admin.sessions.revoke', 'all', '');
+      return json({ ok: true, revoked: 'all' });
+    }
+    const id = String(body?.id || '');
+    if (!/^[A-Za-z0-9_-]{6,16}$/.test(id)) return json({ error: 'invalid_id' }, 400);
+    await env.DB.prepare("DELETE FROM admin_sessions WHERE hash LIKE ? AND hash != ?").bind(id + '%', currentHash).run();
+    await audit(env, 'admin.sessions.revoke', id, '');
+    return json({ ok: true, revoked: id });
+  }
+
+  // 6c. Failed login attempts.
+  if (pathname === '/api/admin/attempts' && method === 'GET') {
+    if (!env.DB) return json({ items: [] });
+    const { results = [] } = await env.DB.prepare('SELECT ip, attempts, last_attempt FROM admin_attempts ORDER BY last_attempt DESC LIMIT 100').all();
+    return json({ items: results });
+  }
+
+  // 6d. Audit log.
+  if (pathname === '/api/admin/audit' && method === 'GET') {
+    return json(await auditList(env, url.searchParams.get('limit'), url.searchParams.get('offset')));
+  }
+
+  // 6e. System state: which secrets exist, which tables are migrated.
+  if (pathname === '/api/admin/system' && method === 'GET') {
+    return json(await systemInfo(env, staticTracksCount));
+  }
+
+  // 6f. Feature flags.
+  if (pathname === '/api/admin/flags') {
+    if (method === 'GET') return json({ flags: await flags(env) });
+    if (method === 'POST') {
+      const body = await readJSON(req, 4000);
+      try {
+        const saved = await setFlag(env, String(body?.key || ''), String(body?.value ?? ''));
+        await audit(env, 'flag.set', saved.key, saved.value);
+        return json({ ok: true, ...saved });
+      } catch (error) {
+        return json({ error: error?.message || 'invalid_flag' }, 400);
+      }
+    }
+  }
+
+  // 6g. Listening analytics.
+  if (pathname === '/api/admin/analytics' && method === 'GET') {
+    const days = Number(url.searchParams.get('days')) || 7;
+    const tracks = await adminCtx.loadTracks().catch(() => []);
+    return json(await analytics(env, days, tracks));
+  }
+
+  // 6h. CSV export.
+  if (pathname === '/api/admin/export' && method === 'GET') {
+    const table = String(url.searchParams.get('table') || '');
+    const result = await exportTable(env, table);
+    if (!result) return json({ error: 'unknown_table' }, 400);
+    return new Response(result.csv, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="' + table + '.csv"',
+        'Cache-Control': 'no-store'
       }
     });
+  }
+
+  // 7. System Overview & Metrics
+  if (pathname === '/api/admin/overview' && method === 'GET') {
+    return json({ success: true, stats: await overview(env, staticTracksCount) });
   }
 
   // 8. Editorial Playlists Management
@@ -648,10 +784,12 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
       const trackIds = JSON.stringify(Array.isArray(body.track_ids) ? body.track_ids : []);
       const isPub = body.is_published ? 1 : 0;
       const sortOrder = Number(body.sort_order) || 0;
+      const startsAt = Number(body.starts_at) || 0;
+      const endsAt = Number(body.ends_at) || 0;
 
       await env.DB.prepare(`
-        INSERT INTO editorial_playlists (id, slug, title, description, cover_url, badge, track_ids, is_published, sort_order, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO editorial_playlists (id, slug, title, description, cover_url, badge, track_ids, is_published, sort_order, starts_at, ends_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           slug = excluded.slug,
           title = excluded.title,
@@ -661,9 +799,12 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
           track_ids = excluded.track_ids,
           is_published = excluded.is_published,
           sort_order = excluded.sort_order,
+          starts_at = excluded.starts_at,
+          ends_at = excluded.ends_at,
           updated_at = excluded.updated_at
-      `).bind(id, slug, title, desc, cover, badge, trackIds, isPub, sortOrder, now(), now()).run();
+      `).bind(id, slug, title, desc, cover, badge, trackIds, isPub, sortOrder, startsAt, endsAt, now(), now()).run();
 
+      await audit(env, 'editorial.save', id, title);
       return json({ success: true, id });
     }
 
@@ -694,6 +835,8 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
       const cover = body.cover_url || '';
       const target = body.target_url || '#';
       const isActive = body.is_active ? 1 : 0;
+      const startsAt = Number(body.starts_at) || 0;
+      const endsAt = Number(body.ends_at) || 0;
 
       // If setting this to active, optionally deactivate other banners
       if (isActive) {
@@ -701,8 +844,8 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
       }
 
       await env.DB.prepare(`
-        INSERT INTO promo_banners (id, title, subtitle, badge, cover_url, target_url, is_active, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO promo_banners (id, title, subtitle, badge, cover_url, target_url, is_active, starts_at, ends_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           subtitle = excluded.subtitle,
@@ -710,9 +853,12 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
           cover_url = excluded.cover_url,
           target_url = excluded.target_url,
           is_active = excluded.is_active,
+          starts_at = excluded.starts_at,
+          ends_at = excluded.ends_at,
           updated_at = excluded.updated_at
-      `).bind(id, title, subtitle, badge, cover, target, isActive, now(), now()).run();
+      `).bind(id, title, subtitle, badge, cover, target, isActive, startsAt, endsAt, now(), now()).run();
 
+      await audit(env, 'promo.save', id, title);
       return json({ success: true, id });
     }
 
@@ -744,12 +890,14 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
       const actionUrl = body.action_url || '';
       const durationDays = Number(body.duration_days) || 3;
       const expiresAt = now() + durationDays * 86400;
+      const startsAt = Number(body.starts_at) || 0;
 
       await env.DB.prepare(`
-        INSERT INTO broadcast_messages (id, title, message, level, action_label, action_url, expires_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(id, title, message, level, actionLabel, actionUrl, expiresAt, now()).run();
+        INSERT INTO broadcast_messages (id, title, message, level, action_label, action_url, expires_at, starts_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(id, title, message, level, actionLabel, actionUrl, expiresAt, startsAt, now()).run();
 
+      await audit(env, 'broadcast.save', id, title);
       return json({ success: true, id });
     }
 
@@ -761,42 +909,13 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
     }
   }
 
-  // 11. Lyrics Editor
-  if (pathname === '/api/admin/lyrics') {
-    if (!env.DB) return json({ error: 'D1 недоступна' }, 503);
-
-    if (method === 'GET') {
-      const trackId = url.searchParams.get('trackId');
-      if (!trackId) return json({ error: 'trackId обязателен' }, 400);
-      const row = await env.DB.prepare(`
-        SELECT id AS track_id, lines, plain AS lyrics_plain, synced AS is_synced, updated AS updated_at FROM track_lyrics WHERE id = ?
-      `).bind(trackId).first();
-      return json({ success: true, lyrics: row ? {...row,lyrics_lrc:JSON.parse(row.lines||'[]').map(l=>'['+String(Math.floor((l.at??l.time)/60)).padStart(2,'0')+':'+((l.at??l.time)%60).toFixed(2).padStart(5,'0')+']'+l.text).join('\n')} : null });
-    }
-
-    if (method === 'POST') {
-      const body = await readJSON(req, 65536);
-      const trackId = (body.track_id || '').trim();
-      if (!trackId) return json({ error: 'track_id обязателен' }, 400);
-      const lrc = (body.lyrics_lrc || '').trim();
-      const plain = (body.lyrics_plain || '').trim();
-      const lines=[];for(const line of lrc.split(/\r?\n/)){const text=line.replace(/\[\d+:\d+(?:\.\d+)?\]/g,'').trim();for(const m of line.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g))lines.push({at:Number(m[1])*60+Number(m[2]),text});}lines.sort((a,b)=>a.at-b.at);
-      const isSynced=lines.length?1:0;
-
-      await env.DB.prepare(`
-        INSERT INTO track_lyrics (id,title,artist,lines,plain,synced,updated) VALUES (?,'','',?,?,?,?) ON CONFLICT(id) DO UPDATE SET lines=excluded.lines,plain=excluded.plain,synced=excluded.synced,updated=excluded.updated
-      `).bind(trackId,JSON.stringify(lines),plain||lines.map(l=>l.text).join('\n'),isSynced,now()).run();
-
-      return json({ success: true });
-    }
-  }
+  // 11. Lyrics are handled by admin-lyrics.mjs before this point.
 
   // 12. Purge Cloudflare Cache
   if (pathname === '/api/admin/purge-cache' && method === 'POST') {
-    return json({
-      success: true,
-      message: 'Запрос на очистку кэша принят. Изменения применятся по всей сети Cloudflare.'
-    });
+    const result = await purgeCache(env, url.origin);
+    await audit(env, 'cache.purge', '', result.message);
+    return json({ success: result.ok, ...result });
   }
 
   return json({ error: 'Маршрут не найден' }, 404);

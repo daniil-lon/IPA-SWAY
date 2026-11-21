@@ -16,12 +16,40 @@ import {
 import {yandexPortraitId} from './yandex-avatar.mjs';
 import {normalizeWaveMark} from './public/wave-mark.js';
 import {readChart,recordChartListen} from './chart-store.mjs';
+import {communitySignals,collectionReaction,clearCommunityCache} from './community-store.mjs';
 import {readTaste,writeTaste} from './taste-store.mjs';
 import {playlistRoute} from './playlist-store.mjs';
 import {importPlaylist} from './playlist-import.mjs';
 // The catalog is a 5 MB static asset. Loading it through the assets binding keeps
 // it out of the Worker bundle and lets every isolate parse it at most once.
-let catalogCache = null, catalogIndexCache = null;
+let catalogCache = null, catalogIndexCache = null, catalogViewCache = null;
+let maintenanceCache = { at: 0, value: false };
+const MAINTENANCE_HTML = '<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sway — обслуживание</title><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#100e17;color:#f3f0f7;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:24px"><div><h1 style="font-size:28px;margin:0 0 12px">Sway обновляется</h1><p style="color:#9c95ab;margin:0">Мы вернёмся через несколько минут. Спасибо за терпение.</p></div></body></html>';
+async function maintenanceMode(env) {
+ if (!env.DB) return false;
+ if (Date.now() - maintenanceCache.at < 15000) return maintenanceCache.value;
+ try {
+  const row = await env.DB.prepare("SELECT value FROM feature_flags WHERE key='maintenance'").first();
+  maintenanceCache = { at: Date.now(), value: row?.value === '1' };
+ } catch {
+  maintenanceCache = { at: Date.now(), value: false };
+ }
+ return maintenanceCache.value;
+}
+async function catalogView(env,req){
+ if(!catalogViewCache||Date.now()-catalogViewCache.at>10000){
+  const pending=(async()=>{
+   const tracks=await catalogTracks(env,req),custom=await getCustomTracks(env);
+   const merged=await applyCatalogOverrides(env.DB,custom.length?[...tracks,...custom]:tracks);
+   const list=merged.filter(track=>!track.hidden),encoder=new TextEncoder();
+   const sizes=list.map(t=>encoder.encode(JSON.stringify(t)).length),offsets=[];let offset=0;
+   while(offset<list.length){offsets.push(offset);let bytes=0,end=offset;while(end<list.length&&end<offset+24){if(end>offset&&bytes+sizes[end]>10000)break;bytes+=sizes[end++];}offset=end;}
+   const digest=await crypto.subtle.digest('SHA-256',encoder.encode(JSON.stringify(list)));
+   return {list,sizes,offsets,version:Array.from(new Uint8Array(digest).slice(0,12),v=>v.toString(16).padStart(2,'0')).join('')};
+  })();const entry={at:Date.now(),pending};catalogViewCache=entry;pending.catch(()=>{if(catalogViewCache===entry)catalogViewCache=null;});
+ }
+ return catalogViewCache.pending;
+}
 async function catalogTracks(env, req) {
  if (!catalogCache) {
   catalogCache = env.ASSETS.fetch(new Request(new URL('/catalog.json', req.url))).then(response => {
@@ -143,19 +171,26 @@ async function auth(req, url, env){
   return fail(stage==='session'?'session_failed':stage==='profile'?'profile_unavailable':'provider',stage);
  }
 }
-export default {async fetch(req,env){
+export default {async fetch(req,env,ctx){
  const url=new URL(req.url), path=url.pathname, method=req.method;
  try{
+  if(path!=='/api/health'&&!path.startsWith('/api/admin/')&&await maintenanceMode(env)){
+   if(path.startsWith('/api/'))return json({error:'maintenance'},503);
+   return new Response(MAINTENANCE_HTML,{status:503,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Retry-After':'300'}});
+  }
   if(path==='/api/catalog'||path==='/catalog.json'){
    const required=loginRequired(env);
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
-   const custom=await getCustomTracks(env);
-   const tracks=await catalogTracks(env,req);
-   const list=await applyCatalogOverrides(env.DB,custom.length>0?[...tracks,...custom]:tracks);
+   const view=await catalogView(env,req),{list,sizes,offsets,version}=view;
    if(path==='/api/catalog'){
     const offset=Number(url.searchParams.get('offset')||0);if(!Number.isSafeInteger(offset)||offset<0||offset>list.length)return json({error:'offset'},400);
-    const items=[];let bytes=0;for(const t of list.slice(offset,offset+24)){const size=new TextEncoder().encode(JSON.stringify(t)).length;if(items.length&&bytes+size>13000)break;items.push(t);bytes+=size;}
-    return json({items,total:list.length,next:offset+items.length<list.length?offset+items.length:null});
+    if(url.searchParams.has('v')&&url.searchParams.get('v')!==version)return json({error:'catalog_changed'},409);
+    const items=[];let bytes=0;for(let i=offset;i<Math.min(list.length,offset+24);i++){if(items.length&&bytes+sizes[i]>10000)break;items.push(list[i]);bytes+=sizes[i];}
+    const result={items,total:list.length,next:offset+items.length<list.length?offset+items.length:null,version};
+    if(offset===0&&url.searchParams.get('plan')==='1'){
+     const pages=offsets.slice(1);if(new TextEncoder().encode(JSON.stringify({...result,pages})).length<13000)result.pages=pages;
+    }
+    return json(result);
    }
    const headers=new Headers({'Content-Type':'application/json; charset=utf-8'});
    headers.set('Cache-Control',required?'private, no-store':'public, max-age=60');
@@ -180,12 +215,13 @@ export default {async fetch(req,env){
    if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
    if(method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'origin'},403);
    const list=await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
-   if(method==='PATCH')return saveCatalogOverride(req,env.DB,list);
+   if(method==='PATCH'){const response=await saveCatalogOverride(req,env.DB,list);if(response.ok)catalogViewCache=null;return response;}
    if(method==='GET'){const a=auditCatalog(list),offset=Math.max(0,Number(url.searchParams.get('offset'))||0);return json({...a,duplicateCount:a.duplicates.length,duplicates:a.duplicates.slice(offset,offset+12),missing:a.missing.slice(0,12),next:offset+12<a.duplicates.length?offset+12:null});}
    return json({error:'method'},405);
   }
   if(path.startsWith('/api/admin/')){
-   return await adminRoute(req,path,method,url,env,(await catalogTracks(env,req)).length);
+   const loadTracks=async()=>applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
+   const response=await adminRoute(req,path,method,url,env,(await catalogTracks(env,req)).length,{ctx,loadTracks});if(method!=='GET'&&response.ok)catalogViewCache=null;return response;
   }
   if(path === '/api/telegram/webhook'){
    const secret=env.TELEGRAM_WEBHOOK_SECRET;
@@ -229,19 +265,35 @@ export default {async fetch(req,env){
   if(path==='/api/chart' && method==='GET'){
    return json({items:chartItems});
   }
+  if(path==='/api/catalog-signals'&&method==='GET'){
+   if(loginRequired(env)&&!await identity(req,env))return json({error:'login_required'},401);
+   return communitySignals(env.DB,await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]));
+  }
+  if(path==='/api/artwork'&&(method==='GET'||method==='HEAD')){
+   const id=url.searchParams.get('id');
+   const list=await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
+   const track=list.find(t=>t.id===id);
+   if(!track)return json({error:'unknown_track'},404);
+   let art=track.art;
+   const svg=/^\/art\/([a-z0-9_-]+)\.svg$/i.exec(art||'');if(svg)art=svg[1]==='logo'?'/art/icon-512.png':'/art/system/'+svg[1]+'.png';
+   if(typeof art!=='string'||!art.startsWith('/art/')||art.includes('..'))return json({error:'no_artwork'},404);
+   const image=await env.ASSETS.fetch(new Request(new URL(art,url.origin),{method}));
+   if(!image.ok||!image.headers.get('Content-Type')?.startsWith('image/'))return json({error:'no_artwork'},404);
+   const headers=new Headers(image.headers);headers.set('Cache-Control','public, max-age=3600');headers.set('X-Content-Type-Options','nosniff');
+   return new Response(image.body,{status:200,headers});
+  }
   if(path==='/api/search-lyrics' && method==='GET'){
    if(loginRequired(env)&&!await identity(req,env))return json({error:'login_required'},401);
    const q=url.searchParams.get('q')?.trim()||'';
    if(q.length<3 || !env.DB) return json({results:[]});
-   const clean=q.replace(/[%_]/g,'').slice(0,60);
+   const clean=q.slice(0,60);if(!/[\p{L}\p{N}]/u.test(clean))return json({results:[]});
    try{
-    const rows=await env.DB.prepare('SELECT id, title, artist, plain FROM track_lyrics WHERE plain LIKE ? LIMIT 15').bind('%'+clean+'%').all();
+    const rows=await env.DB.prepare("SELECT t.id,t.title,t.artist,snippet(lyrics_search,0,'','','…',18) AS excerpt FROM lyrics_search JOIN track_lyrics t ON t.rowid=lyrics_search.rowid WHERE lyrics_search MATCH ? ORDER BY rank LIMIT 15").bind('"'+clean.replaceAll('"','""')+'"').all();
     const results=(rows.results||[]).map(r=>{
-     const lower=r.plain.toLowerCase(), idx=lower.indexOf(clean.toLowerCase());
-     const start=Math.max(0,idx-30), end=Math.min(r.plain.length,idx+clean.length+40);
-     const snippet=(start>0?'...':'')+r.plain.slice(start,end).trim().replace(/\r?\n+/g,' ')+(end<r.plain.length?'...':'');
+     const snippet=r.excerpt.trim().replace(/\r?\n+/g,' ');
      return {id:r.id,title:r.title,artist:r.artist,snippet};
     });
+    if(ctx?.waitUntil)ctx.waitUntil(env.DB.prepare('INSERT INTO search_log(query,results) VALUES(?,?)').bind(clean,results.length).run().catch(()=>{}));
     return json({results});
    }catch{
     return json({results:[]});
@@ -276,6 +328,7 @@ export default {async fetch(req,env){
   }
   if(path==='/api/import/resolve' && method==='POST')return await importPlaylist(req);
   const user=await identity(req,env);
+  if(path==='/api/collection-reactions')return collectionReaction(req,env.DB,user,await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]));
   if(path==='/api/me' && method==='GET'){
    if(!user) return json({user:null,loginConfigured:ready(env),loginRequired:loginRequired(env)});
    const allIds=await getTrackIds(env,req);
@@ -296,6 +349,7 @@ export default {async fetch(req,env){
    const body=await readJSON(req);
    if(typeof body?.track!=='string'||!allIds.has(body.track))return json({error:'unknown_track'},400);
    await recordChartListen(db,user.id,body.track);
+   clearCommunityCache();
    return json({ok:true});
   }
   if(path.startsWith('/api/profile')){
@@ -307,6 +361,7 @@ export default {async fetch(req,env){
   }
   if(path==='/api/me' && method==='DELETE'){
    await db.batch([db.prepare('DELETE FROM likes WHERE uid=?').bind(user.id),db.prepare('DELETE FROM sessions WHERE uid=?').bind(user.id),db.prepare('DELETE FROM users WHERE id=?').bind(user.id)]);
+   clearCommunityCache();
    return new Response(null,{status:204,headers:{'Set-Cookie':cookie(url,sidName,'',0),'Cache-Control':'no-store'}});
   }
   if(path==='/api/me' && method==='PATCH'){
@@ -322,6 +377,7 @@ export default {async fetch(req,env){
    if(method==='PUT') await db.prepare('INSERT OR IGNORE INTO likes(uid,track) VALUES(?,?)').bind(user.id,id).run();
    else if(method==='DELETE') await db.prepare('DELETE FROM likes WHERE uid=? AND track=?').bind(user.id,id).run();
    else return json({error:'method'},405);
+   clearCommunityCache();
    return json({ok:true});
   }
   return json({error:'not_found'},404);
