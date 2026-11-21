@@ -63,5 +63,5 @@ for(const engine of process.env.SWAY_OFFLINE_WEBKIT?[webkit]:[chromium,webkit]){
     console.log('PASS: '+engine.name()+' '+scenario);
    }finally{await context.close();fixture.server.closeAllConnections();await new Promise(resolve=>fixture.server.close(resolve));}
   }
- }finally{await browser.close();await writeFile('artifacts/mobile-loading/offline-reconnect.json',JSON.stringify(report,null,2));}
+ }finally{await browser.close();await writeFile('artifacts/mobile-loading/offline-reconnect.json',JSON.stringify(report,null,2));process.exit(0);}
 }

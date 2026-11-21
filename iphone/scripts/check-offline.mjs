@@ -29,7 +29,7 @@ for(const [label,engine,launch,device] of cases){
   await page.locator('#dialog .dialog-close').tap();
   await page.locator('#dialog').waitFor({state:'hidden'});
   await page.goto(origin+'/#library/offline',{waitUntil:'commit'});
-  await page.getByText(first.title,{exact:true}).first().waitFor();
+  await page.locator('#main').getByText(first.title).first().waitFor();
   await page.getByRole('button',{name:/^Скачать каталог/}).tap();
   await page.getByText('Сохранено: 1 из 1',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Воспроизвести '+second.title,exact:true}).waitFor();

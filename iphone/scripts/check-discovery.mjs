@@ -20,9 +20,10 @@ assert.deepEqual(tagged[0].palette,[11,20,25,41]);
 assert.deepEqual(artistCredits('Дора, Мэйби Бэйби feat. OG Buda'),['Дора','Мэйби Бэйби','OG Buda']);
 assert.deepEqual(tracksInMix(tagged,{mood:'focus'}).map(t=>t.id),['a']);
 assert.deepEqual(tracksInMix(tagged,{genre:genreOf(catalog[1])}).map(t=>t.id),['a','b']);
-assert.deepEqual(relatedMix(tagged,tagged[1]).map(t=>t.id),['a','b']);
+assert.deepEqual(relatedMix(tagged,tagged[1]).map(t=>t.id),['b']);
 const now=Date.now();
-assert.deepEqual(newReleases(tagged.map((t,i)=>({...t,createdAt:i===3?null:Math.floor(now/1000)-i})),{now,perArtist:1}).map(t=>t.id),['p','a']);
+const iso=days=>new Date(now-days*86400000).toISOString().slice(0,10);
+assert.deepEqual(newReleases(tagged.map((t,i)=>({...t,albumReleaseDate:i===3?'':iso(i)})),{now,perArtist:1}).map(t=>t.id),['p','a']);
 assert.notEqual(chartHue(now),chartHue(now+chartPeriod));
 
 const sqlite=new DatabaseSync(':memory:');

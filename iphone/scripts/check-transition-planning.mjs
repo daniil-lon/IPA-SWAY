@@ -30,7 +30,8 @@ const first=new FakeAudio(),second=new FakeAudio();second.paused=true;second.dur
 let committed=null;
 const mix=makeTransition([first,second],{getCurrent:()=>({id:'quiet'}),onCommit:(audio,t)=>{committed={audio,t};}});
 const candidate={id:'next',audio:'/next.mp3'};
-mix.setVolume(.7);mix.tick(candidate);assert.equal(mix.preparedId,'next');assert.equal(second.playCalls,0);
+mix.setVolume(.7);mix.tick(candidate);assert.equal(mix.preparedId,undefined,'preloading waits for the current track to start');
+first.currentTime=4;mix.tick(candidate);assert.equal(mix.preparedId,'next');assert.equal(second.playCalls,0);
 first.currentTime=43;second.bufferEnd=2;mix.tick(candidate);assert.equal(second.playCalls,0,'never mix an unbuffered intro');
 second.bufferEnd=50;mix.tick(candidate);await Promise.resolve();assert.equal(second.playCalls,1);
 first.currentTime=45;second.currentTime=2;mix.tick(candidate);assert.ok(first.volume<.7&&second.volume>0);

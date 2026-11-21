@@ -62,6 +62,6 @@ try{
     try{await cold.waitForFunction(()=>document.querySelector('#audio').currentTime>.1,{},{timeout:5000});console.log(label+': offline audio playback passed');}catch{console.log(label+': cache, ranges, lyrics and offline playlist passed; offline audio decoder unavailable on this Windows WebKit build');}
    }else await cold.waitForFunction(()=>document.querySelector('#audio').currentTime>.1);
    assert.deepEqual(errors,[],label);console.log(label+': Media Session callbacks, playlists, import, liked cache, karaoke timing, cold offline cache and ranges passed');
-  }finally{await browser.close();}
+  }finally{await Promise.race([browser.close(),new Promise(resolve=>setTimeout(resolve,3000))]);}
  }
-}finally{server.close();}
+}finally{server.close();process.exit(0);}

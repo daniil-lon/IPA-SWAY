@@ -30,7 +30,7 @@ try{
   };
   await page.goto(origin+'/#home',{waitUntil:'domcontentloaded'});
   await click(page.getByRole('button',{name:'Слушать волну',exact:true}));
-  await plays(track);await click(page.locator(profile.hasTouch?'.mx-wave .mx-track':'#now-open'));
+  await plays(track);await click(page.locator('.mx-wave .mx-track'));
   await player.waitFor();await player.evaluate(el=>Promise.allSettled(el.getAnimations().map(a=>a.finished)));
   await shown(track);
   const a=await tone.evaluate(el=>el.style.getPropertyValue('--cover-h'));

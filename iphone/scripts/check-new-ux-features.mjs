@@ -113,18 +113,16 @@ try {
     // -------------------------------------------------------------
     // Test 5: Mini-player swipe gestures & Haptic
     // -------------------------------------------------------------
-    const isPlaying = await browserPage.evaluate(() => {
-      const a = document.querySelector('#audio');
-      return a && !a.paused;
-    });
-    if (!isPlaying) {
-      const btn = browserPage.locator('.mx-start, [data-action="mobile-wave"]').first();
-      if (await btn.isVisible()) await btn.click();
-      await browserPage.waitForFunction(() => document.querySelector('#audio').currentTime > 0.05);
-    }
-    
-    // Simulate touch swipe on mini-player
-    const playerBox = await browserPage.locator('.player .now').boundingBox();
+    // The filter test intentionally leaves "bright + Russian" selected; the
+    // two-tone fixture has no match, so restore the default wave before checking gestures.
+    await browserPage.evaluate(() => localStorage.removeItem('tonika.wave-filters'));
+    await browserPage.reload();
+    await browserPage.locator('.mx-start').waitFor({ timeout: 20000 });
+    await browserPage.locator('.mx-start').click();
+    await browserPage.waitForFunction(() => document.querySelector('#audio').currentTime > 0.05, null, { timeout: 15000 });
+
+    // The iPhone build uses the compact wave bar instead of the desktop dock.
+    const playerBox = await browserPage.locator('.mx-wave .mx-track').boundingBox();
     if (playerBox) {
       await browserPage.mouse.move(playerBox.x + playerBox.width * 0.8, playerBox.y + playerBox.height / 2);
       await browserPage.mouse.down();
