@@ -5,8 +5,8 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'artifacts/features-v
 const target=process.env.SWAY_QA_TARGET||'source',report={target,checks:[],errors:[],started:new Date().toISOString()};
 const assert=(value,message)=>{if(!value)throw Error(message);};
 let browser,page,storage,preferences;
-const catalog=JSON.parse(fs.readFileSync(path.join(root,'../public/catalog.json'),'utf8'));
-const album=JSON.parse(fs.readFileSync(path.join(root,'../public/albums.json'),'utf8'))[0];
+const catalog=JSON.parse(fs.readFileSync(path.join(root,'../iphone/public/catalog.json'),'utf8'));
+const album=JSON.parse(fs.readFileSync(path.join(root,'../iphone/public/albums.json'),'utf8'))[0];
 const lyricTrack=catalog.find(t=>{try{return JSON.parse(fs.readFileSync(path.join(root,'../lyrics_archive',t.id+'.json'),'utf8')).lines?.length>5;}catch{return false;}});
 const qaKey='sway.qa.'+Date.now();
 const ids=[lyricTrack.id,...catalog.filter(t=>t.id!==lyricTrack.id).slice(0,4).map(t=>t.id)];

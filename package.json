@@ -9,15 +9,19 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "art": "node scripts/artwork.mjs && node scripts/icons.mjs",
-    "test": "node scripts/check.mjs",
-    "import": "node scripts/import-music.mjs",
-    "test:accounts": "node scripts/check-accounts.mjs",
-    "test:sources": "node scripts/check-sources.mjs",
-    "check:migrations": "node scripts/check-migrations.mjs",
-    "check:security": "node scripts/check-security.mjs"
+    "dev": "npm --prefix iphone run dev",
+    "build:sw": "npm --prefix iphone run build:sw",
+    "build:startup": "npm --prefix iphone run build:startup",
+    "predeploy": "npm --prefix iphone run predeploy",
+    "deploy": "npm --prefix iphone run deploy",
+    "art": "npm --prefix iphone run art",
+    "test": "npm --prefix iphone run test",
+    "import": "npm --prefix iphone run import",
+    "test:accounts": "npm --prefix iphone run test:accounts",
+    "test:sources": "npm --prefix iphone run test:sources",
+    "check:migrations": "npm --prefix iphone run check:migrations",
+    "check:security": "npm --prefix iphone run check:security",
+    "check:platform": "npm --prefix iphone run check:platform"
   },
   "private": true
 }

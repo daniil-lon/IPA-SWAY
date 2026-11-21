@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111722">
+<meta name="description" content="Sway — музыкальный плеер с подборками по настроению, открытым каталогом и твоей коллекцией.">
+<meta name="apple-mobile-web-app-title" content="Sway">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Sway — музыка для момента</title>
+<link rel="manifest" data-sway-manifest="/manifest.webmanifest">
+<link rel="icon" href="data:," data-sway-icon="/art/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" data-sway-icon="/art/icon-180.png">
+<style>html,body{margin:0;background:#111722;color:#fff;font-family:system-ui,sans-serif}.sway-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;isolation:isolate;text-align:center;background:#111722}.splash-logo-wrap{margin:0;flex:none}.splash-logo{display:block;width:120px;height:120px;object-fit:contain;mix-blend-mode:screen}.splash-title{font-size:22px;font-weight:800;letter-spacing:4px;color:#ffff38}.splash-sub{margin-top:9px;color:#bfc4d0;font-size:14px}body[data-auth-gate=loading] #layout,body[data-auth-gate=loading] .player,body[data-auth-gate=loading] .mobile-nav{visibility:hidden}</style>
+<link data-sway-style="/sway.css">
+<!-- sway:boot:start --><script type="module" data-sway-boot data-app-hash="seM3imUTyX/M70so1Yn5IePJV9b0tFsbhHdTnv8fAxw=" data-css-hash="9o1bMJlAJG5QrmXFefGHdvuABAL4psHC078c/IHAU34=">var S=!1,E=!1,h=0,v=[];async function T(r){h>=6&&await new Promise(n=>v.push(n)),h++;try{return await r()}finally{h--,v.shift()?.()}}async function C(r){let n=new AbortController,a=setTimeout(()=>n.abort(),3500),e=()=>n.abort();r.signal?.addEventListener("abort",e,{once:!0});try{let t=await fetch(new Request(r,{signal:n.signal}));if(!t.ok||!t.body)return t;let o=await t.arrayBuffer(),s=new Headers(t.headers),c=s.get("X-Sway-Size");if(c!==null&&(!/^\d+$/.test(c)||!Number.isSafeInteger(Number(c))||o.byteLength!==Number(c)))throw new Error("incomplete_asset");return s.delete("Content-Encoding"),s.delete("Transfer-Encoding"),s.set("Content-Length",String(o.byteLength)),new Response(o,{status:t.status,statusText:t.statusText,headers:s})}finally{clearTimeout(a),r.signal?.removeEventListener("abort",e)}}function A(r,n,a,e){let t=/^bytes (\d+)-(\d+)\/(\d+)$/.exec(r.range||"");if(!t||+t[1]!==a||+t[2]>=+t[3]||+t[3]>33554432||+t[2]-a>=8192||!r.version||e&&r.version!==e)throw new Error("invalid_asset_part");if(n.length!==+t[2]-a+1)throw new Error("incomplete_asset_part");return{data:n,total:+t[3],version:r.version,type:r.type||"application/octet-stream",encoding:r.encoding,size:Number(r.size)}}async function _(r,n,a,e,t="asset"){for(let o=0;;o++){e?.throwIfAborted();try{return await new Promise((s,c)=>{let u=new URLSearchParams({path:r.pathname,offset:String(n),encoding:t==="asset"&&typeof DecompressionStream=="function"?"gzip":"identity",...a?{v:a}:{}}),f=new URL("/api/"+t+"-socket?"+u,r);f.protocol=r.protocol==="https:"?"wss:":"ws:";let d=new WebSocket(f);d.binaryType="arraybuffer";let i,m=!1,w=(l,g)=>{m||(m=!0,clearTimeout(z),e?.removeEventListener("abort",b),d.close(),l?c(l):s(g))},b=()=>w(e.reason||new Error("aborted")),z=setTimeout(()=>w(new Error("asset_socket_timeout")),8e3);e?.addEventListener("abort",b,{once:!0}),d.onmessage=l=>{try{if(typeof l.data=="string"){if(i||l.data.length>2048)throw new Error("invalid_asset_metadata");i=JSON.parse(l.data)}else{if(!i)throw new Error("missing_asset_metadata");w(null,A(i,new Uint8Array(l.data),n,a))}}catch(g){w(g)}},d.onerror=()=>w(new Error("asset_socket_error")),d.onclose=()=>{m||w(new Error("incomplete_asset_socket"))}})}catch(s){if(e?.throwIfAborted(),o>=1)throw s}}}async function x(r,n,a,e,t="asset",o=!1){return T(async()=>{if(E||o)return _(r,n,a,e,t);for(let s=0;;s++){let c=new AbortController,u=setTimeout(()=>c.abort(),2500),f=()=>c.abort();e?.addEventListener("abort",f,{once:!0});try{e?.throwIfAborted();let d=new URLSearchParams({path:r.pathname,offset:String(n),encoding:t==="asset"&&typeof DecompressionStream=="function"?"gzip":"identity",...a?{v:a}:{}}),i=await fetch(new URL("/api/"+t+"-part?"+d,r),{signal:c.signal,credentials:"same-origin"});if(i.status!==206)throw Object.assign(new Error("asset_part_"+i.status),{status:i.status});let m=new Uint8Array(await i.arrayBuffer());return A({range:i.headers.get("Content-Range"),version:i.headers.get("X-Sway-Version"),type:i.headers.get("X-Sway-Type")||i.headers.get("Content-Type"),encoding:i.headers.get("X-Sway-Encoding"),size:i.headers.get("X-Sway-Size")},m,n,a)}catch(d){if(e?.throwIfAborted(),d.status===404||d.status===412)throw d;if(typeof WebSocket=="function")return E=!0,_(r,n,a,e,t);if(s>=2)throw d}finally{clearTimeout(u),e?.removeEventListener("abort",f)}}})}async function L(r,{recovery:n=!1}={}){let a=r instanceof Request?r:new Request(r),e=new URL(a.url);if(!n&&!S)try{return await C(a)}catch{a.signal?.throwIfAborted(),S=!0}let t=await x(e,0,"",a.signal),o=new Uint8Array(t.total);o.set(t.data);let s=t.data.length;if(await Promise.all(Array.from({length:Math.min(4,Math.ceil((t.total-s)/8192))},async()=>{for(;s<t.total;){let c=s;s+=8192;let u=await x(e,c,t.version,a.signal);if(u.total!==t.total)throw new Error("asset_changed");o.set(u.data,c)}})),t.encoding==="gzip"&&(o=new Uint8Array(await new Response(new Blob([o]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer())),o.length!==t.size||o.length>33554432)throw new Error("incomplete_asset");return new Response(o,{headers:{"Content-Type":t.type,"Content-Length":String(o.length),ETag:t.version,"Cache-Control":"public, max-age=0, must-revalidate"}})}var R=()=>document.querySelector("#sway-splash .splash-sub"),y=(r,n)=>{let a;return Promise.race([r,new Promise((e,t)=>{a=setTimeout(()=>t(new Error("connection_timeout")),n)})]).finally(()=>clearTimeout(a))},p=r=>{document.body.dataset.loadStage=r};async function P(){if(!("serviceWorker"in navigator))return;document.body.dataset.offlineStage="worker-download";let r=await y(navigator.serviceWorker.register("/sw.js",{type:"module",updateViaCache:"none"}),45e3);document.body.dataset.offlineStage="worker-activation";let n=r.installing||r.waiting;n&&await y(new Promise((a,e)=>{let t=()=>{n.state==="activated"?a():n.state==="redundant"&&e(new Error("worker_update"))};n.addEventListener("statechange",t),t()}),15e3),navigator.serviceWorker.controller||await y(new Promise(a=>navigator.serviceWorker.addEventListener("controllerchange",a,{once:!0})),8e3),document.body.dataset.offlineStage="ready"}async function k(r,n){if(!/^[A-Za-z0-9+/]{43}=$/.test(n||""))throw new Error("missing_build_hash");for(let a of[!1,!0]){let e=await L(new Request(new URL(r,location.href)),{recovery:a});if(!e.ok)throw new Error("asset_"+e.status);let t=await e.arrayBuffer();if(btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256",t))))===n)return new TextDecoder().decode(t)}throw new Error("asset_integrity")}async function q(){try{P().catch(e=>{document.body.dataset.workerError=e.message});let r=document.querySelector("script[data-sway-boot]").dataset;p("styles");let n=[...document.querySelectorAll("link[data-sway-style]")];await Promise.all(n.map(async e=>{let t=await y(k(e.dataset.swayStyle,r.cssHash),45e3),o=document.createElement("style");o.dataset.swayStyle=e.dataset.swayStyle,o.textContent=t,e.replaceWith(o)})),document.querySelectorAll("[data-sway-srcset]").forEach(e=>{e.srcset=e.dataset.swaySrcset}),document.querySelectorAll("[data-sway-src]").forEach(e=>{e.src=e.dataset.swaySrc}),p("application");let a=await y(k("/app-bundle.js",r.appHash),45e3);await y(new Promise((e,t)=>{let o=document.createElement("script");o.type="module",o.dataset.swayApp="",document.addEventListener("sway:application-ready",e,{once:!0}),o.onerror=()=>t(new Error("application")),o.textContent=a,document.head.append(o)}),6e4),document.querySelectorAll("[data-sway-icon]").forEach(e=>{e.href=e.dataset.swayIcon}),document.querySelectorAll("[data-sway-manifest]").forEach(e=>{e.href=e.dataset.swayManifest}),p("ready")}catch(r){document.body.dataset.loadError=r.message,p("retry");let n=R();if(!n)return;n.textContent="\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u043F\u0440\u0435\u0440\u0432\u0430\u043B\u043E\u0441\u044C. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0435\u0449\u0451 \u0440\u0430\u0437.";let a=document.createElement("button");a.type="button",a.className="btn",a.textContent="\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C",a.style.cssText="display:block;margin:20px auto;padding:12px 24px;border:0;border-radius:24px;background:#ffff38;color:#080a10;font:600 15px system-ui;cursor:pointer",a.addEventListener("click",()=>location.reload()),n.append(a)}}q();
+</script><!-- sway:boot:end -->
+</head>
+<body data-auth-gate="loading">
+<div id="sway-splash" class="sway-splash" aria-live="polite" role="status">
+  <div class="splash-ambient"></div>
+  <div class="splash-logo-wrap">
+    <picture>
+      <source data-sway-srcset="/art/logo-burst.webp" type="image/webp">
+      <img data-sway-src="/art/logo-burst.png" alt="Sway" class="splash-logo" width="190" height="190" loading="eager" decoding="async">
+    </picture>
+  </div>
+  <div class="splash-text">
+    <div class="splash-title">SWAY</div>
+    <div class="splash-sub">Загружаем музыку…</div>
+  </div>
+</div>
+<div id="layout">
+<aside class="sidebar">
+  <a class="brand" href="#home"><img data-sway-src="/art/logo.svg" alt=""><span>Sway<span class="brand-dot">.</span></span></a>
+  <div class="sidebar-body">
+    <span class="nav-caption">СЛУШАТЬ</span>
+    <nav class="nav" aria-label="Разделы">
+      <a href="#home" data-nav="home"><i data-icon="home"></i><span>Главная</span></a>
+      <a href="#discover" data-nav="discover"><i data-icon="music"></i><span>Что послушать</span></a>
+      <a href="#search" data-nav="search"><i data-icon="search"></i><span>Поиск</span></a>
+      <a href="#library" data-nav="library"><i data-icon="library"></i><span>Коллекция</span></a>
+    </nav>
+    <span class="nav-caption second">ВАША МУЗЫКА</span>
+    <nav class="nav"><a href="#liked" data-nav="liked"><i data-icon="heart"></i><span>Мне нравится</span></a></nav>
+  </div>
+  <div class="sidebar-bottom">
+    <a href="#settings"><i data-icon="settings"></i>Настройки</a>
+  </div>
+</aside>
+<div class="workspace">
+<header class="topbar">
+  <a class="brand mobile-brand" href="#home"><img data-sway-src="/art/logo.svg" alt=""><span>Sway<span class="brand-dot">.</span></span></a>
+  <a class="top-search" href="#search"><i data-icon="search"></i><span>Найти трек или артиста</span><kbd>/</kbd></a>
+  <div class="top-right"><button class="install icon" id="install" aria-label="Установить приложение" hidden><i data-icon="download"></i></button><a class="account" href="#profile"><span class="avatar"><i data-icon="user"></i></span><span id="account-label">Войти</span></a></div>
+</header>
+<main id="main" tabindex="-1" aria-live="off">
+  <div class="sway-loader-inline">
+    <div class="splash-ambient"></div>
+    <div class="splash-logo-wrap">
+      <picture>
+        <source data-sway-srcset="/art/logo-burst.webp" type="image/webp">
+        <img data-sway-src="/art/logo-burst.png" alt="Sway" class="splash-logo" width="140" height="140">
+      </picture>
+    </div>
+    <div class="splash-text">
+      <div class="splash-title">SWAY</div>
+      <div class="splash-sub">Загружаем музыку…</div>
+    </div>
+  </div>
+</main>
+</div>
+</div>
+<aside class="player glass" aria-label="Плеер">
+  <div class="now"><button class="now-cover icon" id="now-open" aria-label="Открыть плеер"><img id="now-art" data-sway-src="/art/logo.svg" alt=""></button><button type="button" class="now-text" data-action="now-open" aria-label="Развернуть плеер"><strong id="now-title">Sway</strong><span id="now-artist">Выберите трек</span></button><button id="like-now" class="icon now-like" aria-label="Добавить в понравившиеся" disabled><i data-icon="heart"></i></button></div>
+  <div class="transport">
+    <div class="controls">
+      <button class="icon extra" id="shuffle" aria-pressed="false" aria-label="Перемешать"><i data-icon="shuffle"></i></button>
+      <button class="icon skip" id="prev" aria-label="Предыдущий трек"><i data-icon="prev"></i></button>
+      <button class="icon toggle" id="toggle" aria-label="Воспроизвести"><i data-icon="play"></i></button>
+      <button class="icon skip" id="next" aria-label="Следующий трек"><i data-icon="next"></i></button>
+      <button class="icon extra" id="repeat" aria-pressed="false" aria-label="Повторять трек"><i data-icon="repeat"></i></button>
+    </div>
+    <div class="timeline"><span id="elapsed">0:00</span><progress id="progress" max="100" value="0"></progress><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Перемотка" disabled><span id="duration">–:––</span></div>
+  </div>
+  <div class="player-side">
+    <button class="icon" id="queue-open" aria-label="Очередь воспроизведения"><i data-icon="queue"></i></button>
+    <button class="icon" id="mute" aria-label="Выключить звук" aria-pressed="false"><i data-icon="volume"></i></button>
+    <input id="volume" type="range" min="0" max="100" aria-label="Громкость" value="80">
+  </div>
+</aside>
+<nav class="mobile-nav glass" aria-label="Разделы на телефоне">
+  <a href="#home" data-nav="home"><i data-icon="wave-mark"></i>Главная</a>
+  <a href="#discover" data-nav="discover"><i data-icon="music"></i>Что послушать</a>
+  <a href="#library" data-nav="library"><i data-icon="personal"></i>Коллекция</a>
+</nav>
+<dialog id="dialog" class="glass" data-view="full" aria-label="Плеер"><div id="dialog-body"></div><button type="button" class="icon dialog-close" autofocus aria-label="Закрыть"><i data-icon="chevron"></i></button></dialog>
+<dialog id="sheet" class="glass" aria-label="Действия"><div class="sheet-top" data-drag-sheet><span aria-hidden="true"></span><button type="button" class="icon dialog-close" autofocus aria-label="Закрыть"><i data-icon="close"></i></button></div><div id="sheet-body"></div><p class="sheet-notice" role="status"></p></dialog>
+<dialog id="profile-editor" aria-labelledby="profile-edit-title"></dialog>
+<div id="notice" role="status"></div>
+<audio id="audio" crossorigin="anonymous" preload="metadata"></audio>
+<audio id="audio-next" crossorigin="anonymous" preload="none"></audio>
+<noscript>Для работы плеера включите JavaScript.</noscript>
+</body>
+</html>

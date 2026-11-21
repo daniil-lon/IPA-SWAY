@@ -22,7 +22,7 @@ function libraryRoot(base = __dirname) {
     const config = JSON.parse(fs.readFileSync(path.join(base, 'library.json'), 'utf8').replace(/^\uFEFF/, ''));
     if (typeof config.sharedPublic === 'string' && fs.existsSync(path.join(config.sharedPublic, 'catalog.json'))) return path.resolve(base, config.sharedPublic);
   } catch {}
-  return path.resolve(base, '../public');
+  return path.resolve(base, '../iphone/public');
 }
 
 const isInside = (root, candidate) => candidate === root || candidate.startsWith(root + path.sep);

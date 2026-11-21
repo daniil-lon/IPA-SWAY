@@ -11,6 +11,15 @@ android/**/build/
 android/local.properties
 public/media/
 public/art/
+iphone/public/media/
+iphone/public/art/
+iphone/lyrics_archive/
+iphone/artifacts/
+iphone/.private/
+iphone/.tools/
+iphone/.wrangler/
+iphone/test_catalog.json
+android/releases/
 lyrics_archive/
 .playwright-mcp/
 test_catalog.json

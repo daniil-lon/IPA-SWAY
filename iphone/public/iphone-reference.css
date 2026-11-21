@@ -1,0 +1,104 @@
+/* iPhone composition measured against the November 22 reference. */
+/* The reference keeps the wave title visible while idle and swaps it for a
+   station chip once a station is chosen. Older CSS hid the title entirely. */
+.mx-wave .mx-wave-caption,
+.mx-wave[data-playing=false] .mx-wave-caption,
+.mx-wave[data-playing=false] [data-wave-heading]{opacity:1!important;visibility:visible!important}
+.mx-wave [data-wave-heading]{color:#fffb00;font-size:clamp(17px,4.2vw,22px);font-weight:800;letter-spacing:-.035em}
+.wave-insight{display:flex;align-items:center;gap:8px;width:fit-content;max-width:calc(100% - 36px);margin:9px auto 0;padding:7px 14px;border-radius:999px;background:#ffffff0c;color:#e8e4ef;font-size:12px;line-height:1.25;box-shadow:none;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.wave-insight svg{width:15px;height:15px;flex:none;color:#fffb00}
+.wave-insight span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body[data-page=home] .mx-wave{background:#030506;padding-bottom:calc(71px + env(safe-area-inset-bottom))}
+.mx-wave .mx-wave-atmosphere{background:var(--system-surface);transition:background .65s ease}
+.mx-wave .mx-wave-atmosphere .wave-light{filter:blur(1px);mask-image:none;-webkit-mask-image:none}
+.mx-wave .mx-head{min-height:calc(53px + env(safe-area-inset-top));padding-inline:8px}
+.mx-wave .mx-wave-caption{font-size:16px;font-weight:750;letter-spacing:-.025em}
+.mx-wave .wave-selection{min-height:36px;padding:6px 13px;max-width:100%;font-size:14px;line-height:1.05;background:#0911134d;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:none}
+.mx-wave .wave-selection span{white-space:normal;text-wrap:balance;max-width:24ch}
+.mx-wave .wave-selection svg{width:16px;height:16px;flex:none}
+body[data-page=home] .mx-wave .mx-stage{max-height:none;min-height:150px}
+.mx-wave .mx-live{grid-template-rows:minmax(0,1fr) calc(var(--wave-cover) + 13px)}
+.mx-wave .mx-title-slot{padding:22px 15px 12px}
+.mx-wave .mx-title-slot h1{font-size:clamp(44px,15.3vw,94px);font-weight:850;letter-spacing:-.055em;line-height:.98}
+.mx-wave .mx-art{margin-bottom:12px}
+.mx-wave .mx-wave-cover{border-radius:7px;box-shadow:0 8px 26px #0003}
+.mx-wave .mx-idle{gap:30px;padding-bottom:16px}
+.mx-wave .mx-idle h1{font-size:clamp(44px,13vw,82px);letter-spacing:-.055em}
+.mx-wave .mx-start{width:clamp(83px,24vw,112px);height:clamp(83px,24vw,112px);box-shadow:none}
+.mx-wave .mx-wave-bar{margin-inline:18px;gap:5px;flex:none;min-height:52px}
+.mx-wave .mx-track{min-height:52px;padding:8px 15px;line-height:1.1;font-size:15px;background:#ffffff12;box-shadow:none}
+.mx-wave .mx-pause,.mx-wave .mx-wave-like{width:52px;height:52px;min-height:52px;flex:0 0 52px;background:#ffffff12}
+.mx-wave .mx-wave-like svg{width:24px;height:24px;stroke-width:1.8}
+.mx-wave .wave-filter-bar{margin:10px auto 0}
+.mx-wave .wave-filters-btn{min-height:34px;font-size:12px;padding:6px 13px;background:#ffffff0b}
+body[data-page=home] .mx-wave .wave-deck-frame{--deck-card:clamp(134px,35.8vw,224px);--deck-height:clamp(155px,24dvh,211px);height:var(--deck-height);margin-top:auto;background:transparent}
+.mx-wave .wave-deck{padding-block:39px 0;height:100%;box-sizing:border-box;overflow-y:hidden;overscroll-behavior-x:contain;scroll-padding-inline:0;touch-action:pan-x}
+.mx-wave .wave-deck-item{padding-top:9px}
+body[data-page=home] .mx-wave .wave-deck-button{height:calc(var(--deck-height) - 20px);padding:28px 7px 12px;transform-origin:50% 50%;transform:translateY(calc(17px * var(--deck-weight,.8) - var(--deck-raise,0px))) rotate(calc(var(--deck-distance,0) * 8deg)) scale(calc(1 - var(--deck-weight,.8) * .035));border-radius:50% 50% 38% 38%/43% 43% 38% 38%}
+.mx-wave .wave-deck-button::before{background:radial-gradient(ellipse at 61% 9%,var(--deck-light),transparent 61%),radial-gradient(ellipse at 52% 4%,var(--deck-mid),var(--deck-dark) 66%,#000 99%);box-shadow:inset 1px 1px #ffffff62;mask-image:linear-gradient(#000 5%,#000e 55%,#0002 91%,transparent);-webkit-mask-image:linear-gradient(#000 5%,#000e 55%,#0002 91%,transparent)}
+.mx-wave .wave-deck-button[aria-pressed=true]{--deck-raise:5px}
+.mx-wave .wave-deck-button span:not(.wave-deck-glyph){font-size:clamp(12px,3.1vw,16px);font-weight:570;line-height:1.08;max-width:17ch;overflow-wrap:normal}
+.mx-wave .wave-deck-glyph{top:-29px;width:clamp(44px,12.7vw,62px);height:clamp(44px,12.7vw,62px)}
+.mx-wave .wave-deck-glyph.wave-deck-avatar{width:53px;height:53px;top:-31px;border-radius:50%}
+.mx-wave .wave-deck-item[data-deck-shortcut]{flex-basis:calc(var(--deck-card) * .69)}
+.mx-wave .wave-deck-item[data-deck-shortcut] .wave-deck-button{padding:31px 8px 8px;transform:translateY(6px);background:none;box-shadow:none}
+.mx-wave .wave-deck-item[data-deck-shortcut] .wave-deck-glyph{top:-5px;width:30px;height:30px;filter:none}
+.mx-wave .wave-deck-item[data-deck-shortcut] .wave-deck-button span:not(.wave-deck-glyph){font-size:12px;max-width:12ch;color:#fffc00}
+.mx-wave .wave-deck-item[data-deck-shortcut] .wave-deck-button::after{display:none}
+.mx-full .full-artwork{width:min(100%,max(176px,calc(100svh - 387px)),445px);margin-bottom:19px}
+.mx-full .mx-full-extra{gap:18px!important;margin-top:27px}
+.mx-full .mx-full-extra>.icon{width:72px;height:43px;min-height:43px;background:#ffffff0c}
+.mx-full[data-offline=true] .mx-full-extra{row-gap:15px!important}
+.mx-full[data-offline=true] .mx-full-utilities{display:none!important}
+.mx-full .track-mix.animated-radio{min-height:73px;border-radius:15px;background:color-mix(in srgb,var(--cover-surface,#73777e) 72%,transparent)!important}
+.mx-full .track-mix small{font-size:11px;color:#ffffffad}
+.mx-full .track-mix strong{font-size:16px;line-height:1.15}
+.full-playlists,.full-artist-section{margin:27px 0 0}
+.full-playlists h3{font-size:21px;letter-spacing:-.035em;margin:0 0 12px}
+.full-playlist-destinations{display:grid;gap:4px}
+.full-playlist-destination{display:flex;align-items:center;gap:12px;min-height:64px;width:100%;border:0;background:none;padding:5px 0;color:white;text-align:start}
+.full-playlist-cover{width:48px;height:48px;flex:none;border-radius:8px;display:grid;place-items:center;background:#ffffff0d;overflow:hidden}
+.full-playlist-cover img{width:100%;height:100%;object-fit:cover}
+.full-playlist-cover svg{width:23px;height:23px;color:#ffffff69}
+.full-playlist-copy{display:grid;gap:3px;min-width:0;flex:1}
+.full-playlist-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.full-playlist-copy small{font-size:11px;color:#ffffff80}
+.full-playlist-destination [data-playlist-state] svg{width:21px;height:21px;color:#ffffffa0}
+.full-playlist-destination[aria-pressed=true] [data-playlist-state] svg{color:#fffc00}
+.full-playlist-more{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;min-height:43px;padding:9px;border:0;border-radius:14px;background:#ffffff0c;color:#ffffffb8;font-size:12px;margin-top:9px}
+.full-playlist-more svg{width:14px;height:14px}
+.full-artist-card{position:relative;isolation:isolate;display:flex;align-items:end;width:100%;min-height:295px;overflow:hidden;border-radius:16px;color:white;text-decoration:none;background:#101820}
+.full-artist-card>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%;z-index:-2}
+.full-artist-card::before{content:'';position:absolute;inset:0;background:linear-gradient(transparent 15%,#07101535 36%,#071015eb);z-index:-1}
+.full-artist-card>span{padding:20px;display:grid;gap:7px;min-width:0}
+.full-artist-card strong{font-size:25px;line-height:1.05;letter-spacing:-.035em}
+.full-artist-card small{font-size:11px;color:#ffffffc4}
+.full-artist-card p{font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:6px 0 0}
+.full-artist-card b{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#fffc00}
+.full-artist-card b svg{width:13px;height:13px}
+.settings-group-title{font-size:12px;line-height:1.3;letter-spacing:.055em;text-transform:uppercase;color:#ffffff66;margin:28px 4px 8px;font-weight:650}
+.settings-group-title:first-child{margin-top:15px}
+.settings-view .setting-row{border-radius:0;min-height:71px;border-color:#ffffff0c;padding-block:16px}
+.settings-view .setting-copy strong{font-size:15px;font-weight:560}
+.settings-view .setting-copy small{font-size:12px;line-height:1.45}
+.lyrics-loading{display:flex;justify-content:center;align-items:center;gap:8px;flex:1;min-height:80px}
+.lyrics-loading span{width:10px;height:10px;background:#ffffff45;border-radius:50%;animation:lyric-loading 1.2s ease-in-out infinite}
+.lyrics-loading span:nth-child(2){animation-delay:.15s}.lyrics-loading span:nth-child(3){animation-delay:.3s}.lyrics-loading span:nth-child(4){animation-delay:.45s}
+@keyframes lyric-loading{50%{opacity:.35;transform:translateY(2px)}}
+@media(prefers-reduced-motion:reduce){.lyrics-loading span{animation:none}.mx-wave .wave-deck-button{transition:none!important}}
+@media(max-height:600px){
+ body[data-page=home] .mx-wave{padding-bottom:calc(58px + env(safe-area-inset-bottom))}
+ body[data-page=home] .mx-wave .mx-stage{min-height:80px}
+ .mx-wave .mx-live{grid-template-columns:1fr 60px;grid-template-rows:1fr;align-items:center;padding:0 22px}
+ .mx-wave .mx-title-slot{padding:3px}.mx-wave .mx-title-slot h1{font-size:32px!important}
+ .mx-wave .mx-art{margin:0}.mx-wave .mx-wave-cover{width:50px;height:50px}
+ .mx-wave .mx-idle{display:flex;align-items:center;justify-content:center;gap:20px;padding:0}
+ .mx-wave .mx-idle h1{font-size:37px}.mx-wave .mx-start{width:59px;height:59px}
+ .mx-wave .mx-wave-bar{min-height:38px}.mx-wave .mx-track{min-height:38px;font-size:13px}
+ .mx-wave .mx-pause,.mx-wave .mx-wave-like{width:38px;height:38px;min-height:38px;flex-basis:38px}
+ .mx-wave .wave-filter-bar{margin:5px auto 0}.mx-wave .wave-filters-btn{min-height:28px;padding:4px 12px}
+ body[data-page=home] .mx-wave .wave-deck-frame{--deck-card:137px;--deck-height:103px;min-height:75px}
+ .mx-wave .wave-deck{padding-top:20px}.mx-wave .wave-deck-button{padding-top:25px!important}
+ .mx-wave .wave-deck-glyph{width:36px;height:36px;top:-22px}.mx-wave .wave-deck-glyph.wave-deck-avatar{width:37px;height:37px;top:-23px}
+ .mx-wave .wave-deck-button span:not(.wave-deck-glyph){font-size:11px}
+}

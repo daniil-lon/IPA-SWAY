@@ -1,0 +1,10 @@
+import {DatabaseSync} from 'node:sqlite';
+import {readFile,writeFile,stat} from 'node:fs/promises';
+const file='artifacts/loading-recovery/public-catalog-metadata.sql',db=new DatabaseSync(':memory:');
+db.exec(await readFile(file,'utf8'));
+const overrides=db.prepare('SELECT track,metadata FROM catalog_overrides').all().map(r=>({track:r.track,metadata:JSON.parse(r.metadata)}));
+const languages=db.prepare('SELECT id,language FROM track_languages').all();
+const custom=db.prepare('SELECT * FROM custom_tracks').all().map(r=>({id:r.id,title:r.title,artist:r.artist,genre:r.genre||'pop',audio:'/api/custom-media/'+r.id+'.mp3',art:r.art||'/art/logo.svg',bytes:r.bytes||0,seconds:r.seconds||0,moods:JSON.parse(r.moods||'[]')}));
+const state={capturedAt:(await stat(file)).mtime.toISOString(),overrides,languages,custom};
+await writeFile('published-catalog-state.json',JSON.stringify(state,null,2)+'\n');db.close();
+console.log(JSON.stringify({overrides:overrides.length,languages:languages.length,custom:custom.length}));

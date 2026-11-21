@@ -14,8 +14,8 @@ async function boot(){
 (async()=>{
  let original;try{original=await fs.readFile(registryFile);}catch{}
  try{
-  const catalog=JSON.parse(await fs.readFile(path.join(source,'../public/catalog.json'),'utf8'));
-  const file=path.resolve(source,'../public',decodeURIComponent(catalog[0].audio).replace(/^\//,''));
+  const catalog=JSON.parse(await fs.readFile(path.join(source,'../iphone/public/catalog.json'),'utf8'));
+  const file=path.resolve(source,'../iphone/public',decodeURIComponent(catalog[0].audio).replace(/^\//,''));
   const registry=new LocalLibrary(profile);const [track]=await registry.add([file],'book');
   const first=await boot(),second=await boot();
   for(const run of [first,second]){assert(run.ready&&run.bridge);assert.equal(run.imported.id,track.id);assert.equal(run.imported.count,1);assert.equal(run.imported.kind,'book');assert.equal(run.imported.status,206);assert.equal(run.imported.bytes,32);assert(run.imported.duration>5);assert.deepEqual(run.rendererErrors,[]);}

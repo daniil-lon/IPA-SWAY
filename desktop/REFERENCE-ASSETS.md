@@ -23,7 +23,7 @@ No application scripts, authentication data, or business logic were included in 
 
 ## Existing project artwork
 
-`../public/art/favorites.svg` remains the existing website artwork. The desktop's folded heart now uses the reference asset listed below. No Dead Sea Live album was found in the current Sway catalogue.
+`../iphone/public/art/favorites.svg` remains the existing website artwork. The desktop's folded heart now uses the reference asset listed below. No Dead Sea Live album was found in the current Sway catalogue.
 
 ## Fidelity pass 1.1
 

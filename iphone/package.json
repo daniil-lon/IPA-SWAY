@@ -1,0 +1,27 @@
+{
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.65.1",
+    "wrangler": "^4.162.0"
+  },
+  "name": "sway-iphone",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build:sw": "node scripts/build-service-worker.mjs",
+    "build:startup": "node scripts/build-startup.mjs",
+    "predeploy": "npm run check:platform && npm run build:sw && npm run build:startup",
+    "deploy": "wrangler deploy",
+    "art": "node scripts/artwork.mjs && node scripts/icons.mjs",
+    "test": "node scripts/check.mjs",
+    "import": "node scripts/import-music.mjs",
+    "test:accounts": "node scripts/check-accounts.mjs",
+    "test:sources": "node scripts/check-sources.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "check:security": "node scripts/check-security.mjs",
+    "check:platform": "node scripts/check-platform.mjs"
+  },
+  "private": true
+}
