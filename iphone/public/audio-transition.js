@@ -43,7 +43,7 @@ export function transitionGains(progress,level){
 }
 
 // The active element stays the source of truth until both streams are ready.
-export function makeTransition(elements,{enabled=true,mixer=null,onCommit,sourceFor=t=>t.audio,getCurrent=()=>null,getAccents=()=>null}={}){
+export function makeTransition(elements,{enabled=true,mixer=null,crossfade=()=>true,onCommit,sourceFor=t=>t.audio,getCurrent=()=>null,getAccents=()=>null}={}){
  let [active,standby]=elements,candidate=null,candidateSource='',phase='',timer=0,level=.8,muted=false,flight=0,blendAt=0,blendFor=transitionSeconds,pendingPlay,plan=null,progress=0;
  let handoffTimer=0,handoffOutgoing=null,handoffBegan=0;
  let nativeVolume=enabled;
@@ -94,25 +94,24 @@ export function makeTransition(elements,{enabled=true,mixer=null,onCommit,source
   try{standby.currentTime=0;}catch{}
   mix();
  }
- // blend=false only buffers the next track, so the switch at the end stays gapless without a crossfade.
- function tick(next,{blend=true}={}){
+ function tick(next){
   if(handoffTimer)return;
-  if(!enabled)return;
   if(!next||active.paused||!Number.isFinite(active.duration)){
    if(candidate&&!active.ended)cancel();return;
   }
   if(active.seeking||active.ended)return;
   const remaining=active.duration-active.currentTime;
-  const source=sourceFor(next);
-  if(candidate&&(candidate.id!==next.id||candidateSource!==source))cancel();
+  if(candidate&&candidate.id!==next.id)cancel();
   if(remaining<=0||active.readyState<3)return;
   // Let the current stream start before loading the next one in the background.
   if(!candidate){
    let ahead=0;for(let i=0;i<active.buffered.length;i++)if(active.buffered.start(i)<=active.currentTime&&active.buffered.end(i)>active.currentTime)ahead=active.buffered.end(i)-active.currentTime;
-   if(remaining>transitionSeconds+5&&(active.currentTime<4||ahead<12))return;
+   if(remaining>transitionSeconds+5&&(active.currentTime<1||ahead<8))return;
+   const source=sourceFor(next,standby);
    candidate=next;candidateSource=source;phase='preloaded';standby.preload='auto';standby.src=source;
   }
-  if(!blend||!supported||!nativeVolume&&!mixer?.canMix())return;
+  else if(candidateSource!==sourceFor(next,standby)){cancel();return;}
+  if(!supported||!crossfade()||!nativeVolume&&!mixer?.canMix())return;
   if(phase==='mixing'){mix();return;}
   if(!timer&&remaining<=transitionSeconds+1)timer=setInterval(()=>tick(candidate),32);
   if(phase!=='preloaded'||standby.seeking||standby.readyState<3||standby.error||remaining<.65)return;
@@ -135,8 +134,8 @@ export function makeTransition(elements,{enabled=true,mixer=null,onCommit,source
   try{pendingPlay=Promise.resolve(standby.play());pendingPlay.then(began,rejected);}catch{rejected();}
  }
  function finish(next,{manual=false}={}){
-  if(manual&&(standby.readyState<2||handoffTimer))return false;
-  if(!supported&&phase!=='preloaded'||!next||candidate?.id!==next.id||candidateSource!==sourceFor(next)||phase==='rejected'||standby.ended||standby.error){
+  if(manual&&handoffTimer)return false;
+  if(!next||candidate?.id!==next.id||candidateSource!==sourceFor(next,standby)||phase==='rejected'||standby.ended||standby.error){
    cancel();return false;
   }
   // Keep the same element and request even if buffering outlasted the current track.
@@ -145,7 +144,7 @@ export function makeTransition(elements,{enabled=true,mixer=null,onCommit,source
   try{if(!playAttempt&&standby.paused)playAttempt=Promise.resolve(standby.play());}catch{cancel();return false;}
   clearInterval(timer);timer=0;flight++;candidate=null;candidateSource='';phase='';pendingPlay=undefined;plan=null;progress=0;
   swap();
-  if(manual&&!outgoing.paused){
+  if(manual&&supported&&crossfade()&&active.readyState>=2&&!outgoing.paused){
    const incoming=active,began=performance.now();handoffOutgoing=outgoing;handoffBegan=began;
    gain(outgoing,level);gain(incoming,0);
    handoffTimer=setInterval(()=>{

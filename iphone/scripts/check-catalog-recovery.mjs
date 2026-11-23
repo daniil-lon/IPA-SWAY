@@ -17,6 +17,13 @@ const pages=await Promise.all(first.pages.map(offset=>call('/api/catalog?offset=
 const items=[...first.items,...pages.flatMap(p=>p.items)];
 assert.equal(items.length,first.total);assert.equal(new Set(items.map(t=>t.id)).size,first.total);
 assert.ok(items.every(t=>t.art&&t.audio&&Array.isArray(t.artists)));
+for(const method of ['GET','HEAD']){
+ const artwork=await call('/api/artwork?id='+encodeURIComponent(first.items[0].id),{method});
+ assert.equal(artwork.status,200,'System artwork remains public and available when D1 has no read quota');
+ assert.match(artwork.headers.get('Content-Type'),/^image\//);
+ if(method==='GET')assert.ok((await artwork.arrayBuffer()).byteLength>100);
+ else assert.equal((await artwork.arrayBuffer()).byteLength,0,'HEAD provides image headers without a response body');
+}
 const snapshot=await recoverPublishedCatalog(first.items,{custom:[],languages:[{id:first.items[0].id,language:'ru'}],overrides:[{track:first.items[0].id,metadata:{hidden:true,title:'Published correction'}}]});
 assert.equal(snapshot[0].hidden,true);assert.equal(snapshot[0].title,'Published correction');assert.equal(snapshot[0].language,'ru');
 assert.equal((await call('/api/catalog?v=changed')).status,409);
@@ -34,6 +41,7 @@ assert.equal(authenticatedFailure.status,503);
 const defective=await fixtureWorker('catalog-defect');
 const defect=await defective.fetch(new Request(origin+'/api/catalog'),{...env,REQUIRE_YANDEX_LOGIN:'0',DB:brokenDB('D1_ERROR: no such table: catalog_overrides')});
 assert.equal(defect.status,503);
+assert.equal((await defective.fetch(new Request(origin+'/api/artwork?id='+encodeURIComponent(first.items[0].id)),{...env,REQUIRE_YANDEX_LOGIN:'0',DB:brokenDB('D1_ERROR: no such table: catalog_overrides')})).status,503);
 
 // A running isolate keeps its newer successful metadata if D1 later fails.
 let exhausted=false;
@@ -45,4 +53,4 @@ assert.equal(healthy.total,6999);exhausted=true;
 const clock=Date.now;Date.now=()=>clock()+11000;
 try{const stale=await cachedWorker.fetch(new Request(origin+'/api/catalog'),cachedEnv).then(r=>r.json());assert.equal(stale.total,healthy.total);assert.equal(stale.version,healthy.version);assert.ok(stale.items.every(t=>t.id!==first.items[0].id));}finally{Date.now=clock;}
 await writeFile('artifacts/loading-recovery/catalog-validation.json',JSON.stringify({at:new Date().toISOString(),total:items.length,unique:new Set(items.map(t=>t.id)).size,quotaFallback:true,loginGuard:true,otherDefectsVisible:true},null,2));
-console.log('PASS: full catalogue during the D1 quota failure, exact paging/version, login guard and unrelated-error rejection');
+console.log('PASS: full catalogue and system artwork during the D1 quota failure, exact paging/version, login guard and unrelated-error rejection');

@@ -78,8 +78,9 @@ export async function uploadsAdminRoute({ req, path, method, url, env }) {
   const file = form.get('file');
   if (!file || typeof file === 'string') return json({ error: 'Выберите аудиофайл' }, 400);
   if (file.size === 0) return json({ error: 'Файл пустой' }, 400);
-  if (file.type && !/^audio\//i.test(file.type) && !/octet-stream/i.test(file.type)) {
-    return json({ error: 'Ожидается аудиофайл' }, 415);
+  // The storage and public media route use MP3; no transcoder runs here.
+  if (!/\.mp3$/i.test(file.name) || file.type && !/^(audio\/(mpeg|mp3)|application\/octet-stream)$/i.test(file.type)) {
+    return json({ error: 'Поддерживается MP3. Сначала преобразуйте аудио в MP3.' }, 415);
   }
 
   const title = String(form.get('title') || file.name.replace(/\.[a-z0-9]+$/i, '')).trim().slice(0, 150);
@@ -100,29 +101,26 @@ export async function uploadsAdminRoute({ req, path, method, url, env }) {
   const id = 'custom-' + [...crypto.getRandomValues(new Uint8Array(6))].map(value => value.toString(16).padStart(2, '0')).join('');
   const art = safeArt(form.get('art'));
   const moods = parseMoods(form.get('moods'));
+  const statements = [];
 
   if (bucket) {
     await bucket.put('custom/' + id + '.mp3', bytes, { httpMetadata: { contentType: 'audio/mpeg' } });
   } else {
-    const statements = [];
     for (let index = 0; index * D1_CHUNK < bytes.length; index += 1) {
       const slice = bytes.subarray(index * D1_CHUNK, (index + 1) * D1_CHUNK);
       let binary = '';
       for (let offset = 0; offset < slice.length; offset += 1) binary += String.fromCharCode(slice[offset]);
       statements.push(env.DB.prepare('INSERT INTO custom_audio_chunks (track_id, chunk_index, data) VALUES (?, ?, ?)').bind(id, index, btoa(binary)));
     }
-    try {
-      await env.DB.batch(statements);
-    } catch (error) {
-      return json({ error: 'Не удалось сохранить аудио в D1', detail: String(error?.message || error).slice(0, 200) }, 500);
-    }
   }
 
   try {
-    await env.DB.prepare(`
+    const metadata = env.DB.prepare(`
       INSERT INTO custom_tracks (id, title, artist, genre, seconds, moods, art, audio, source, license, bytes, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Sway', 'Sway', ?, unixepoch())
-    `).bind(id, title, artist, genre, seconds, JSON.stringify(moods), art, '/api/custom-media/' + id + '.mp3', bytes.length).run();
+    `).bind(id, title, artist, genre, seconds, JSON.stringify(moods), art, '/api/custom-media/' + id + '.mp3', bytes.length);
+    if (bucket) await metadata.run();
+    else await env.DB.batch([...statements, metadata]);
   } catch (error) {
     if (bucket) { try { await bucket.delete('custom/' + id + '.mp3'); } catch {} }
     return json({ error: 'Не удалось создать трек', detail: String(error?.message || error).slice(0, 200) }, 500);

@@ -2,7 +2,7 @@ import {offlineCache,offlineRoot} from './public/offline-storage.js';
 import {fetchAsset,isTransferAsset} from './public/asset-loader.js';
 import {fetchMedia} from './public/media-loader.js';
 
-const SHELL='sway-shell-v34';
+const SHELL='sway-shell-v37';
 // All public JS/CSS/JSON/art paths are already covered by isTransferAsset.
 const core=new Set(['/','/offline.html']);
 
@@ -38,15 +38,27 @@ async function warmShell(){
 
 async function shellResponse(event,path){
  const cache=await caches.open(SHELL);
- const saved=await cache.match(path);if(saved)return saved;
+ const saved=await cache.match(path),entry=path==='/'||path==='/app-bundle.js'||path==='/sway.css';
+ // A cached HTML page pins exact application/style hashes and CSP. Keeping it
+ // cache-first across releases can pair an old entry with new assets forever.
+ if(saved&&(!entry||self.navigator.onLine===false))return saved;
  try{
-  // Covers carry no exact size and are often slower than 3.5 s on mobile data. Fetching them through the
+  // Covers carry no exact size and are often slower than 8 s on mobile data. Fetching them through the
   // strict code path flipped every later asset into 8 KB chunks and then failed the image outright.
-  const response=path.startsWith('/art/')?await fetch(new Request(event.request,{signal:AbortSignal.timeout(15000)})).catch(()=>{event.request.signal?.throwIfAborted();return fetchAsset(event.request,{recovery:true});}):
-   isTransferAsset(path)?await fetchAsset(event.request):await fetch(new Request(event.request,{signal:AbortSignal.timeout(8000)}));
+  const art=path.startsWith('/art/');
+  const request=new Request(event.request,{cache:entry?'no-store':event.request.cache,signal:AbortSignal.timeout(art?15000:8000)});
+  let response=art?await fetch(request).catch(()=>{event.request.signal?.throwIfAborted();return fetchAsset(event.request,{recovery:true});}):
+   isTransferAsset(path)?await fetchAsset(request):await fetch(request);
+  if(path==='/'&&response.ok){
+   const bytes=await response.arrayBuffer();
+   if(bytes.byteLength>131072||!new TextDecoder().decode(bytes).trimEnd().endsWith('</html>'))throw new Error('incomplete_entry');
+   const headers=new Headers(response.headers);headers.delete('Content-Encoding');headers.delete('Transfer-Encoding');headers.set('Content-Length',String(bytes.byteLength));
+   response=new Response(bytes,{status:response.status,headers});
+  }
   if(response.ok&&!response.redirected&&!new URL(event.request.url).search)event.waitUntil(cache.put(path,response.clone()).catch(()=>{}));
   if(response.status<500)return response;
  }catch{}
+ if(saved)return saved;
  const keys=await caches.keys();
  for(const key of keys.filter(k=>k.startsWith('sway-shell-')&&k!==SHELL).reverse()){
   const previous=await (await caches.open(key)).match(path);if(previous)return previous;

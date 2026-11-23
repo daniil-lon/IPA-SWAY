@@ -24,6 +24,8 @@ import {readChart,recordChartListen} from './chart-store.mjs';
 import {communitySignals,collectionReaction,clearCommunityCache} from './community-store.mjs';
 import {readTaste,writeTaste} from './taste-store.mjs';
 import {playlistRoute} from './playlist-store.mjs';
+import {folderRoute} from './folder-store.mjs';
+import {experienceRoute} from './experience-store.mjs';
 import {importPlaylist} from './playlist-import.mjs';
 // The catalog is a 5 MB static asset. Loading it through the assets binding keeps
 // it out of the Worker bundle and lets every isolate parse it at most once.
@@ -250,7 +252,7 @@ export default {async fetch(req,env,ctx){
    if(loginRequired(env)&&!await identity(req,env))return json({error:'login_required'},401);
    return path==='/api/media-socket'?assetSocket(req,env,{mediaAllowed:true}):assetPart(req,env,{mediaAllowed:true});
   }
-  if(path.startsWith('/t/')&&(method==='GET'||method==='HEAD'))return await trackPreview(req,env,url,decodeURIComponent(path.slice(3)));
+  if(path.startsWith('/t/')&&(method==='GET'||method==='HEAD')){let id='';try{id=decodeURIComponent(path.slice(3));}catch{}return await trackPreview(req,env,url,id);}
   if(path==='/api/catalog'||path==='/catalog.json'){
    const required=loginRequired(env);
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
@@ -284,6 +286,11 @@ export default {async fetch(req,env,ctx){
    const required=loginRequired(env);
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
    return await serveCustomMedia(req,path,env,{private:required});
+  }
+  if(path==='/api/admin/experience'||path.startsWith('/api/admin/experience/reports/')){
+   if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
+   if(method!=='GET'&&(req.headers.get('Origin')!==url.origin||!req.headers.get('Content-Type')?.startsWith('application/json')))return json({error:'origin'},403);
+   return experienceRoute(req,path,env.DB,{admin:true});
   }
   if(path==='/api/admin/catalog'){
    if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
@@ -337,7 +344,8 @@ export default {async fetch(req,env,ctx){
    const custom=await getCustomTracks(env);
    return json({ok:true,tracks:(await catalogTracks(env,req)).length+custom.length,loginConfigured:ready(env),loginRequired:loginRequired(env)});
   }
-  if(method!=='GET' && (req.headers.get('Origin')!==url.origin || !req.headers.get('Content-Type')?.startsWith('application/json'))) return json({error:'origin'},403);
+  if(method!=='GET' && !(method==='HEAD'&&path==='/api/artwork') && (req.headers.get('Origin')!==url.origin || !req.headers.get('Content-Type')?.startsWith('application/json'))) return json({error:'origin'},403);
+  if(path==='/api/performance'||path==='/api/track-reports')return experienceRoute(req,path,env.DB,{hasTrack:async id=>(await getTrackIds(env,req)).has(id)});
   if(path==='/api/chart' && method==='GET'){
    return json({items:chartItems});
   }
@@ -347,7 +355,7 @@ export default {async fetch(req,env,ctx){
   }
   if(path==='/api/artwork'&&(method==='GET'||method==='HEAD')){
    const id=url.searchParams.get('id');
-   const list=await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
+   const {list}=await catalogView(env,req);
    const track=list.find(t=>t.id===id);
    if(!track)return json({error:'unknown_track'},404);
    let art=track.art;
@@ -356,7 +364,7 @@ export default {async fetch(req,env,ctx){
    const image=await env.ASSETS.fetch(new Request(new URL(art,url.origin),{method}));
    if(!image.ok||!image.headers.get('Content-Type')?.startsWith('image/'))return json({error:'no_artwork'},404);
    const headers=new Headers(image.headers);headers.set('Cache-Control','public, max-age=3600');headers.set('X-Content-Type-Options','nosniff');
-   return new Response(image.body,{status:200,headers});
+   return new Response(method==='HEAD'?null:image.body,{status:200,headers});
   }
   if(path==='/api/search-lyrics' && method==='GET'){
    if(loginRequired(env)&&!await identity(req,env))return json({error:'login_required'},401);
@@ -413,6 +421,7 @@ export default {async fetch(req,env,ctx){
   }
   if(!user) return json({error:'login_required'},401);
   const db=env.DB;
+  if(path==='/api/playlist-folders'||path.startsWith('/api/playlist-folders/'))return folderRoute(req,path,db,user);
   if(path==='/api/taste'){
    if(method==='GET')return json(await readTaste(db,user.id));
    if(method==='PUT')return writeTaste(req,db,user.id);

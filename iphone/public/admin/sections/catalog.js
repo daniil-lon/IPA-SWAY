@@ -191,8 +191,8 @@ export async function render(root) {
             <div class="form-grid">
               <div class="form-group wide">
                 <label class="form-label">Аудиофайл <span class="req">*</span></label>
-                <input class="form-input" type="file" accept="audio/*" name="file" data-upload-file required>
-                <span class="form-hint" data-upload-limit>MP3, M4A, WAV. Длительность определяется автоматически.</span>
+                <input class="form-input" type="file" accept=".mp3,audio/mpeg,audio/mp3" name="file" data-upload-file required>
+                <span class="form-hint" data-upload-limit>MP3. Длительность определяется автоматически.</span>
               </div>
               <div class="form-group"><label class="form-label">Название <span class="req">*</span></label><input class="form-input" name="title" required maxlength="150"></div>
               <div class="form-group"><label class="form-label">Исполнитель <span class="req">*</span></label><input class="form-input" name="artist" required maxlength="150"></div>
@@ -640,8 +640,8 @@ export async function render(root) {
       state.uploadStorage = data.storage;
       root.querySelector('[data-upload-storage]').textContent = data.storage === 'r2' ? 'хранилище R2' : 'хранилище D1 (без R2)';
       root.querySelector('[data-upload-limit]').textContent = data.storage === 'r2'
-        ? 'MP3, M4A, WAV до 60 МБ. Файл уходит в R2.'
-        : 'MP3, M4A, WAV до 8 МБ. Для больших файлов подключите R2 (MEDIA_BUCKET).';
+        ? 'MP3 до 60 МБ. Файл уходит в R2.'
+        : 'MP3 до 8 МБ. Для больших файлов подключите R2 (MEDIA_BUCKET).';
       root.querySelector('[data-upload-count]').textContent = fmtNum(data.items?.length || 0) + ' шт.';
       target.innerHTML = (data.items || []).map(track => `
         <div class="list-item">

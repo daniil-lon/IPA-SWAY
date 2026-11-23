@@ -16,6 +16,7 @@ export async function startupWorker(request,env){
  // Buffer the encoded body too. A small fixed-length gzip response avoids
  // intermediary Brotli/chunked transforms during the native worker download.
  const wire=gzip?await new Response(new Blob([body]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer():body;
+ if(gzip&&wire.byteLength>=8192)return new Response(null,{status:502});
  headers.set('Content-Type','text/javascript; charset=utf-8');headers.set('Content-Encoding',gzip?'gzip':'identity');
  headers.set('Content-Length',String(wire.byteLength));headers.set('X-Sway-Size',String(body.byteLength));headers.set('Vary','Accept-Encoding');
  headers.set('Cache-Control','public, max-age=0, must-revalidate, no-transform');headers.set('X-Content-Type-Options','nosniff');

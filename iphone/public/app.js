@@ -22,12 +22,15 @@ import {mergeMusic,parseYandexLink,restoreCommonsTrack,searchCommons} from './mu
 import {createSystemMedia,isIOS} from './system-media.js';
 import {makeTransition,transitionSeconds} from './audio-transition.js';
 import {installPlaybackRecovery} from './playback-recovery.js';
+import {createProgressivePlayback} from './progressive-playback.js';
 import {feedback,supportsHaptics} from './haptics.js';
 import {downloadableAudio,offlineURL,readOfflineAudio,readOfflineTracks,removeOfflineTrack,saveOfflineTrack,supportsOffline} from './offline-storage.js';
 import {signInView,profileCard,editorView,mountProfileSongPicker,resizeProfileImage,yandexAvatarPath} from './profile-ui.js';
 import {mountTaste,tasteView} from './taste-ui.js';
 import {mountLyrics} from './lyrics.js';
 import {createPlaylists} from './playlists.js';
+import {createPlaybackMetrics} from './playback-metrics.js';
+import {createTrackReporter} from './track-report.js';
 import {matchPlaylist,parseTrackList} from './playlist-match.js';
 import {mountRowGestures} from './row-gestures.js';
 // Promo attribution: remember the first ?src= label (tg_post, tg_story, tg_bot…), count one visit per
@@ -151,6 +154,8 @@ const onDeviceLikes=new Set(load('commons-likes',[]));
 let likes=new Set([...load('likes',[]),...onDeviceLikes]), timer, installation, modal='', infoTrack=null, authError='';
 let audio=$('#audio');
 const audioElements=[audio,$('#audio-next')], main=$('#main'), dialog=$('#dialog'), sheet=$('#sheet'), editor=$('#profile-editor');
+const playbackMetrics=createPlaybackMetrics(audioElements,()=>audio);
+const reportTrack=createTrackReporter({api,html,icon,metrics:playbackMetrics});
 const fullClose=dialog.querySelector('.dialog-close');
 let lyricsUI=null,lyricsLifetime=null,lyricsMode='off';
 fullClose.addEventListener('click',event=>{if(lyricsUI?.collapse()){event.preventDefault();event.stopPropagation();}});
@@ -163,9 +168,10 @@ function releaseSavedAudio(keep){
  if(savedAudioObject&&savedAudioObject.url!==keep){URL.revokeObjectURL(savedAudioObject.url);savedAudioObject=null;}
 }
 connectNativeAudio(audioElements);
-if(!nativeAndroid)installPlaybackRecovery(audioElements);
+const progressive=nativeAndroid?null:createProgressivePlayback(audioElements);
+if(!nativeAndroid)installPlaybackRecovery(audioElements,{progressive});
 const eq=nativeAndroid?nativeEqualizer(audioElements,load('equalizer',{})):makeEqualizer(audioElements,load('equalizer',{}));
-const transitions=makeTransition(audioElements,{mixer:eq,onCommit:commitTransition,sourceFor:playbackURL,getCurrent:()=>current,getAccents:getTrackAccents});
+const transitions=makeTransition(audioElements,{mixer:eq,crossfade:()=>prefs.crossfade,onCommit:commitTransition,sourceFor:(t,element)=>progressive?.sourceFor(element,playbackURL(t),t.seconds)||playbackURL(t),getCurrent:()=>current,getAccents:getTrackAccents});
 let plannedNext=null;
 let embedActive=false, savedRemote=load('commons-tracks',[]);
 const storedEmbeds=load('yandex-links',[]);
@@ -319,9 +325,11 @@ function waveDeckChoices(){
  deckRank=recommendation;return cachedDeck=choices;
 }
 function closestDeckSlot(key){
- if(waveMix?.slot!=null)return waveMix.slot;
  const choices=waveDeckChoices(),index=choices.findIndex(item=>item.key===key);
- return index<0?waveDeckSlot:index+Math.round((waveDeckSlot-index)/choices.length)*choices.length;
+ const previous=waveMix?.key===key&&waveMix.slot!=null?waveMix.slot:waveDeckSlot;
+ const slot=index<0?previous:index+Math.round((previous-index)/choices.length)*choices.length;
+ if(waveMix?.key===key)waveMix.slot=slot;
+ return slot;
 }
 function deckCard(slot){
  const item=document.createElement('div');item.className='wave-deck-item';
@@ -481,15 +489,6 @@ function openSleepTimerSheet() {
   open('sleep-timer');
 }
 
-function waveInsightText(){
- const t=current||tracks[0];
- return t&&playing
-  ? (t.genre?waveArtist(t)+' · '+t.genre:waveArtist(t))
-  : 'Собираю интересное по твоим лайкам и истории прослушиваний';
-}
-function waveInsight(){
- return '<div class="wave-insight" data-wave-insight>'+icon('spark')+'<span>'+html(waveInsightText())+'</span></div>';
-}
 function mobileHome(){
  const t=current||tracks[0];if(!t)return '';
  const front=waveArtist(t);
@@ -499,7 +498,7 @@ function mobileHome(){
  '<div class="mx-stage"><div class="mx-live"><img class="mx-artist-photo" alt="" decoding="async"'+(wavePhoto(t)?' src="'+html(wavePhoto(t))+'"':' hidden')+'><div class="mx-title-slot"><h1 id="mobile-wave-title" data-long="'+(front.length>21)+'">'+html(front)+'</h1></div><div class="mx-art"><img class="mx-wave-cover" src="'+html(t.art)+'" alt=""><button class="mx-art-open" type="button" data-action="mobile-play" aria-label="Развернуть плеер с обложки"></button></div></div>'+
  '<div class="mx-idle"><h1>Моя волна</h1>'+button('play',current?'Продолжить волну':'Слушать волну','data-action="mobile-wave"','icon mx-start')+'</div></div><div class="mx-wave-bar">'+
  button('pause','Пауза','data-action="mobile-wave"','mx-pill mx-pause icon')+'<div class="mx-track-control"><button class="mx-pill mx-track" type="button" data-action="mobile-play"><span class="mx-track-playing">'+html(t.title)+'</span><span class="mx-track-idle">'+html(t.artist+' — '+t.title)+'</span></button><label class="mx-wave-progress" hidden><input class="wave-seek" type="range" min="0" max="1000" value="0" aria-label="Перемотка на главной"></label></div>'+button('heart','Мне нравится','data-wave-like data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"','mx-pill mx-wave-like icon')+
- '</div>'+waveInsight()+waveFiltersBar()+waveDeck()+'</section>';
+ '</div>'+waveFiltersBar()+waveDeck()+'</section>';
 }
 function mobileProfile(){
  const option=(href,label)=>'<a href="'+href+'">'+label+icon('forward')+'</a>';
@@ -1508,7 +1507,7 @@ function syncWaveSelection(){
  const chip=$('.wave-selection'), frame=$('.wave-deck-frame');if(!chip||!frame)return;
  const selected=selectedMixKey();
  if((frame.dataset.selection||'')===selected)return;
- const focused=document.activeElement, visibilityChanged=!!frame.dataset.selection!==!!selected;
+ const focused=document.activeElement;
  frame.dataset.selection=selected;chip.hidden=!selected;
  const heading=$('[data-wave-heading]');if(heading)heading.hidden=!!selected;
  if(selected){chip.querySelector('span').textContent=waveName();chip.setAttribute('aria-label',(waveMix?'Сбросить подборку «':'Сбросить настроение «')+waveName()+'»');}
@@ -1789,7 +1788,7 @@ function dismissSplash(){
  const splash=document.getElementById('sway-splash');
  if(splash&&!splash.classList.contains('fading')){
   splash.classList.add('fading');
-  setTimeout(()=>{try{splash.remove();}catch{}},700);
+  setTimeout(()=>{try{splash.remove();}catch{}},220);
  }
 }
 function render(){
@@ -1798,6 +1797,7 @@ function render(){
  tasteLifetime?.abort();tasteLifetime=null;
  profileJob?.abort();
  if(!accountReady)return;
+ playbackMetrics.ready();
  if(loginRequired&&!user&&!offlineMode){
   document.body.dataset.authGate='true';document.body.dataset.page='login';page='login';
   main.innerHTML=signInView({configured:loginConfigured,error:authError,offline:accountOffline});return;
@@ -1886,7 +1886,6 @@ function syncPlaybackWait(){
 }
 function sync(){
  syncChrome();persistQueue();
- const insight=$('.wave-insight span');if(insight)insight.textContent=waveInsightText();
  document.body.classList.toggle('has-track',!!current);setCoverColors(document.body,current||tracks[0]);refreshMobileWave();syncWaveSelection();
  if(page!=='home')waveLight?.setTrack(current||tracks[0]);waveLight?.setPlaying(playing||starting);
  $('#now-title').textContent=current?.title||'Sway';$('#now-artist').textContent=current?.artist||'Выберите трек';
@@ -1923,6 +1922,8 @@ async function play(t,items,mode='track',direction=1,{start=true}={}){
  if(embedActive)closeEmbed();
  systemMedia.prepare();
  const request=++playRequest;starting=start;travel=direction;
+ const playbackMetric=current&&current.id!==t.id?'next_audio':'first_audio';
+ if(start)playbackMetrics.begin(playbackMetric);
  // Start Web Audio during the tap, before an offline file read can lose the gesture.
  const processing=start?beginEqualizer():null;
  // The second element also carries gapless switches without crossfade, so unlock it during the tap.
@@ -1938,6 +1939,7 @@ async function play(t,items,mode='track',direction=1,{start=true}={}){
    if(blob&&offlineTracks.has(t.id))source=URL.createObjectURL(blob);
   }
  }
+ if(!source.startsWith('blob:'))source=progressive?.sourceFor(audio,source,t.seconds)||source;
  const priorMode=playMode;playMode=mode;if(!['wave','track-wave'].includes(mode)){waveMood='';waveMix=null;}if(items){queue=(items.some(x=>x.id===t.id)?items:[t,...items]).map(x=>x.id);nextUp='';unshuffled=null;if(!restoringQueue)queueSource=describeSource(mode);if(shuffle&&!restoringQueue&&!isWaveMode())shuffleQueue(t.id);}
  if(t.id!==current?.id){
   const prior=current;
@@ -1957,7 +1959,7 @@ async function play(t,items,mode='track',direction=1,{start=true}={}){
   if(priorMode!==mode&&dialog.open&&dialog.dataset.view==='full')paintFull();
  }
  releaseSavedAudio(audio.getAttribute('src'));
- if(source.startsWith('blob:'))savedAudioObject={id:t.id,url:source};
+ if(savedOnIOS&&source.startsWith('blob:'))savedAudioObject={id:t.id,url:source};
  if(!start){audio.pause();playing=false;sync();return;}
  sync();
  try{
@@ -1979,9 +1981,6 @@ function queueNext(t){
  invalidateFade();queue=queue.filter(id=>id!==t.id);queue.splice(queue.indexOf(current.id)+1,0,t.id);nextUp=t.id;persistQueue();notice('Трек прозвучит следующим');
  if(modal==='queue')paintSheet();
 }
-// Without crossfade the next track is still buffered for a gapless switch. The Android service owns its own
-// queue, and iOS without crossfade or leveling routes only one element through the equalizer.
-const preloadsNext=()=>prefs.crossfade||!nativeAndroid&&!(nativeAudio&&!normalizeVolume);
 function shuffled(ids){const list=[...ids];for(let i=list.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[list[i],list[j]]=[list[j],list[i]];}return list;}
 // Shuffle is a real order, so the queue sheet, previous/next, crossfade preloading
 // and the Android playback service all agree on the upcoming tracks.
@@ -2008,7 +2007,7 @@ function syncRepeatButton(b){
  b.setAttribute('aria-pressed',repeat!=='off');b.setAttribute('aria-label',repeatLabel());b.dataset.repeat=repeat;
  if(b.querySelector('i')?.dataset.icon!==repeatIcon())b.innerHTML=icon(repeatIcon());
 }
-function pausePlayback(){rememberLongPosition();++playRequest;invalidateFade();starting=false;if(scrub)scrub.resume=false;audio.pause();playing=false;sync();}
+function pausePlayback(){playbackMetrics.cancel();rememberLongPosition();++playRequest;invalidateFade();starting=false;if(scrub)scrub.resume=false;audio.pause();playing=false;sync();}
 function seekPlayback(seconds,fast=false){
  if(!Number.isFinite(audio.duration)||!Number.isFinite(seconds))return;
  transitions.rewind();
@@ -2022,8 +2021,8 @@ function automaticTrack(){
  if(isWaveMode()&&i===queue.length-1){
   if(!plannedNext||plannedNext.order!==queue||plannedNext.from!==current.id){
    const order=waveOrder(waveMood,waveExplorer,waveMix);
-   const first=order.find(t=>t!==current);
-   plannedNext={order:queue,from:current.id,to:first,items:first?[first,...order.filter(t=>t!==first)]:undefined};
+   const first=order.find(t=>t.id!==current.id);
+   plannedNext={order:queue,from:current.id,to:first,items:first?[first,...order.filter(t=>t.id!==first.id)]:undefined};
   }
   return plannedNext.to||null;
  }
@@ -2035,6 +2034,7 @@ function commitTransition(incoming,t,playAttempt){
  const prior=current;
  if(plannedNext?.items){queue=plannedNext.items.map(item=>item.id);nextUp='';}
  audio=incoming;current=t;plannedNext=null;travel=1;starting=false;playing=true;
+ playbackMetrics.committed();
  if(t.id===nextUp)nextUp='';
  listening={position:audio.currentTime,seconds:Math.min(transitionSeconds,audio.currentTime),recorded:false,chartRecorded:false};
  systemMedia.setTrack(t);rememberPlayed();
@@ -2056,9 +2056,10 @@ function step(delta,ended=false,forceNeighbor=false,recordSkip=true){
   return;
  }
  const start=intendsPlayback()||!audio.paused;
+ if(start)playbackMetrics.begin('next_audio');
  const i=queue.indexOf(current?.id);
  if(delta===1&&recordSkip&&!listening.recorded&&audio.readyState>0&&!audio.error)saveWaveSignal('skip');
- const prepared=delta===1&&start&&preloadsNext()?map.get(queue[i+1]):null;
+ const prepared=delta===1&&start?map.get(queue[i+1]):null;
  if(prepared&&transitions.preparedId===prepared.id&&transitions.finish(prepared,{manual:true}))return;
  if(delta===1){
   if(isWaveMode()){
@@ -2086,9 +2087,11 @@ function waveOrder(key,explore,mix){
 function startWave(key='',{first=null,explore=false,mix=null,start=true,mode='wave'}={}){
  const order=waveOrder(key,explore,mix);
  if(!order.length){notice(offlineOnly()?'В этой подборке нет скачанных треков.':'В этой подборке пока нет подходящих треков.');return;}
- const opening=first&&order.includes(first)?first:order.find(t=>t!==current)||order[0];
+ // Catalog enrichment replaces track objects. Identity must follow the song ID,
+ // otherwise a refreshed catalog can replay the current song when shaking.
+ const opening=(first&&order.find(t=>t.id===first.id))||order.find(t=>t.id!==current?.id)||order[0];
  waveMood=key;waveMix=mix;waveExplorer=explore;
- play(opening,[opening,...order.filter(t=>t!==opening)],mode,1,{start});return true;
+ play(opening,[opening,...order.filter(t=>t.id!==opening.id)],mode,1,{start});return true;
 }
 function chooseWaveMood(id,b){
  if(!moods.some(m=>m[0]===id))return;
@@ -2185,10 +2188,10 @@ function measureListening(){
  }
 }
 const seekControl='#seek,.full-seek,.wave-seek';
-let scrub=null, playheadFrame=0, lastPlayhead=0;
+let scrub=null, playheadFrame=0, lastPlayhead=0, scrubFrame=0;
 const positionRatio=(position,total)=>total>0&&Number.isFinite(total)?Math.min(1,Math.max(0,position/total)):0;
 function drawMobileSeek(wrap,f){
- const progress=wrap.querySelector('progress');
+ const progress=wrap._progress||(wrap._progress=wrap.querySelector('progress'));
  progress.value=f*1000;wrap.style.setProperty('--seek-fraction',f);
 }
 function requestSeekFrame(){
@@ -2213,10 +2216,7 @@ function syncSeek(input,f,total,position){
  if(input!==scrub?.element)input.value=Math.round(f*1000);
  input.setAttribute('aria-valuetext',time(position)+' из '+time(total));
 }
-function updateTime(){
- accountListening.tick(current?.id||'',audio.currentTime,!audio.paused&&!audio.seeking);
- eq.measure(audio,current?.id);const standby=audioElements.find(el=>el!==audio);if(standby)eq.measure(standby,transitions.preparedId);
- if(Date.now()-lastQueueSave>4000){lastQueueSave=Date.now();persistQueue();rememberLongPosition();}
+function paintScrub(){
  const total=audio.duration, ready=Number.isFinite(total)&&total>0;
  if(scrub&&(!scrub.element.isConnected||scrub.track!==current?.id||!ready))scrub=null;
  const position=scrub?Number(scrub.element.value)/1000*total:audio.currentTime;
@@ -2235,9 +2235,17 @@ function updateTime(){
  const fullSeek=$('.full-seek');if(fullSeek){syncSeek(fullSeek,f,total,position);$('#full-time').textContent=time(position)+' / '+time(total);}
  $('.player').style.setProperty('--played',(f*100)+'%');
  $('#mx-wave-root')?.style.setProperty('--played',(f*100)+'%');
+ return position;
+}
+function updateTime(){
+ accountListening.tick(current?.id||'',audio.currentTime,!audio.paused&&!audio.seeking);
+ eq.measure(audio,current?.id);const standby=audioElements.find(el=>el!==audio);if(standby)eq.measure(standby,transitions.preparedId);
+ if(Date.now()-lastQueueSave>4000){lastQueueSave=Date.now();persistQueue();rememberLongPosition();}
+ const position=paintScrub();
  lyricsUI?.update(position);
 }
 function finishScrub(job,commit){
+ if(scrubFrame){cancelAnimationFrame(scrubFrame);scrubFrame=0;}
  if(scrub!==job)return;
  scrub=null;
  if(job.track===current?.id){
@@ -2256,7 +2264,8 @@ function finishScrub(job,commit){
 function dragSeek(job,x){
  const rect=job.element.getBoundingClientRect(), edge=4;
  job.element.value=Math.round(1000*Math.min(1,Math.max(0,(x-rect.left-edge-job.grab)/Math.max(1,rect.width-edge*2))));
- updateTime();
+ // Paint at most once per frame while dragging: full updateTime is too heavy per pointermove.
+ if(!scrubFrame)scrubFrame=requestAnimationFrame(()=>{scrubFrame=0;if(scrub===job)paintScrub();});
 }
 document.addEventListener('pointerdown',e=>{
  if(e.isPrimary&&e.button===0&&e.target.matches?.(seekControl)&&!e.target.disabled&&current){
@@ -2348,13 +2357,7 @@ function syncFullScroll(){
 }
 dialog.addEventListener('scroll',syncFullScroll,{passive:true});
 
-let fullVisualTicket=0;
-function paintFull(previous=null,decoded=false){
- const visualTicket=++fullVisualTicket;
- if(previous&&current&&!decoded){
-  const cover=prepareArtwork(fullCoverTrack(current).art),id=current.id;
-  if(!cover.loaded){Promise.race([cover.promise,new Promise(resolve=>setTimeout(resolve,650))]).then(()=>{if(current?.id===id&&fullVisualTicket===visualTicket&&dialog.open)paintFull(previous,true);});return;}
- }
+function paintFull(previous=null){
  lyricsLifetime?.abort();lyricsUI=null;
  const b=$('#dialog-body'), t=fullCoverTrack(current), focus=dialog.contains(document.activeElement)?document.activeElement?.dataset.action:null;
  const old=previous?b.querySelector('.full-player'):null, scroll=dialog.scrollTop;
@@ -2451,6 +2454,7 @@ function paintSheet(){
   else content+=items.length?'<div class="offline-actions"><button class="btn primary" type="button" data-action="download-favorites">Скачать всё</button><button class="btn" type="button" data-action="stop-downloads" hidden>Остановить</button></div><p class="offline-status" data-offline-status role="status"></p><div class="download-list">'+items.map(t=>'<div>'+art(t)+'<span><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></span>'+download(t)+'</div>').join('')+'</div>':'<p class="quiet">В этой подборке нет треков для скачивания.</p>';
  }
  $('#sheet-body').innerHTML=content;
+ if(modal==='info'&&infoTrack&&!infoTrack.provider)$('#sheet-body .mx-info-list')?.insertAdjacentHTML('beforeend',sheetRow('info','Сообщить о проблеме','data-track-report="'+html(infoTrack.id)+'"'));
  if(infoTrack)setCoverColors(sheet,infoTrack);else sheet.removeAttribute('data-cover-track');
  if(modal==='queue')mountQueueDrag($('#sheet-body'),{commit:ids=>{reorderQueue(ids);paintSheet();},feedback:()=>pulse('tick')});
  sync();syncOfflineUI();
@@ -2523,6 +2527,8 @@ async function endAccount(remove,btn){
  btn.disabled=true;try{await Promise.all([settingsWrites,tasteWrites.catch(()=>{})]);await api(remove?'/api/me':'/api/logout',remove?'DELETE':'POST');clearAccount();notice(remove?'Аккаунт удалён':'Вы вышли из аккаунта');}catch{notice('Не удалось выполнить действие. Попробуй ещё раз.');btn.disabled=false;}
 }
 document.addEventListener('click',e=>{
+ const reportButton=e.target.closest('[data-track-report]');
+ if(reportButton){const track=map.get(reportButton.dataset.trackReport);if(track){sheet.close();reportTrack(track);}return;}
  if(e.target.closest('a[href="/auth/yandex"]')&&/^#u\/[a-z0-9_]{3,24}$/.test(location.hash)){
   try{sessionStorage.setItem('sway.after-login',location.hash);}catch{}
  }
@@ -2753,8 +2759,8 @@ document.addEventListener('submit',e=>{
 function attachAudio(el){
  for(const ev of ['loadedmetadata','durationchange','timeupdate','emptied'])el.addEventListener(ev,()=>{if(el===audio)updateTime();});
  for(const ev of ['waiting','seeking','seeked','canplay','playing','emptied'])el.addEventListener(ev,()=>{if(el===audio)syncPlaybackWait();});
- el.addEventListener('timeupdate',()=>{if(el===audio){measureListening();if(!scrub&&preloadsNext())transitions.tick(automaticTrack(),{blend:prefs.crossfade});}});
- for(const event of ['canplay','seeked'])el.addEventListener(event,()=>{if(!scrub&&preloadsNext())transitions.tick(automaticTrack(),{blend:prefs.crossfade});});
+ el.addEventListener('timeupdate',()=>{if(el===audio){measureListening();if(!scrub)transitions.tick(automaticTrack());}});
+ for(const event of ['canplay','seeked'])el.addEventListener(event,()=>{if(el===audio&&!scrub)transitions.tick(automaticTrack());});
  el.addEventListener('seeking',()=>{if(el===audio){listening.position=null;transitions.rewind();}});
  el.addEventListener('playing',()=>{if(el===audio)rememberPlayed();});
  for(const ev of ['playing','pause','play'])el.addEventListener(ev,()=>{if(el===audio){if(el.paused&&!el.ended)invalidateFade();playing=!el.paused&&!el.ended&&!el.error;sync();}});
@@ -2956,7 +2962,16 @@ async function fetchCatalog({requireNetwork=false}={}){
    const retained=savedRemote.map(t=>restoreCommonsTrack(t,canPlay)).filter(Boolean);map=new Map([...savedItems(),...retained,...normalized].map(t=>[t.id,t]));indexAlbums();indexArtists();refreshSuggestions();
    if(complete){catalogSettled=true;void playlists.load().then(()=>{if(['library','stats'].includes(page))render();});void restoreQueue();queueLikedCache();}
   };
-  const result=await loadCatalog((list,complete)=>{accept(list,complete);if(!['search','settings','profile','u','join'].includes(page)&&!dialog.open&&!sheet.open&&(complete||page!=='home'||main.querySelector('.sway-loader-inline')))renderWhenIdle();else if(page==='search')searchResults();renderResume();},error=>{document.querySelector('.catalog-retry')?.remove();if(error){const bar=document.createElement('div');bar.className='account-resume catalog-retry';bar.innerHTML='<span>Загружена часть каталога. Обнови, когда появится связь.</span><button class="btn" type="button" data-action="retry-account">Обновить</button>';main.prepend(bar);}},{requireNetwork});accept(result.items,result.settled===true);
+  let lastPartialRender=0;
+  const result=await loadCatalog((list,complete)=>{
+   accept(list,complete);
+   // Full page rebuilds recreate the wave canvas and deck: throttle them while the catalog streams in.
+   const quiet=['search','settings','profile','u','join'].includes(page)||dialog.open||sheet.open;
+   // Home keeps the idle screen until the catalog settles; a rebuild mid-touch would drop the tap.
+    if(!quiet&&(complete||(page!=='home'||main.querySelector('.sway-loader-inline'))&&performance.now()-lastPartialRender>2500)){lastPartialRender=performance.now();renderWhenIdle();}
+   else if(page==='search')searchResults();
+   renderResume();
+  },error=>{document.querySelector('.catalog-retry')?.remove();if(error){const bar=document.createElement('div');bar.className='account-resume catalog-retry';bar.innerHTML='<span>Загружена часть каталога. Обнови, когда появится связь.</span><button class="btn" type="button" data-action="retry-account">Обновить</button>';main.prepend(bar);}},{requireNetwork});accept(result.items,result.settled===true);
   const metadata=async(path,fallback)=>fetch(path,{signal:AbortSignal.timeout(8000)}).then(r=>r.ok?r.json():fallback).catch(()=>fallback);
   void Promise.all([metadata('/track-moods.json',{}),metadata('/chart.json',[]),metadata('/albums.json',[]),metadata('/artists.json',[]),metadata('/track-languages.json',{})]).then(([m,chart,albums,artists,languageData])=>{measured=m||{};languages=languageData||{};if(Array.isArray(albums))albumsData=albums;if(Array.isArray(artists))artistsData=artists;if(Array.isArray(chart)&&chart.length){rankedChart=chart;chartTime=Date.now();}accept(catalogEntries,false);if(['discover','artist','album'].includes(page))render();});
   return tracks;

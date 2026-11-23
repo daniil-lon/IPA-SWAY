@@ -36,7 +36,8 @@ assert.equal(health.tracks,catalog.length);
 for(const track of catalog){
  const original=await readFile('public'+decodeURI(track.audio));
  const offset=original.length-512;
- const actual=await curl(['--range',offset+'-',origin+encodeURI(track.audio)]);
+ // Catalog paths come both raw and percent-encoded; normalise so %D0 never turns into %25D0.
+ const actual=await curl(['--range',offset+'-',origin+encodeURI(decodeURI(track.audio))]);
  assert.deepEqual(actual,original.subarray(offset),track.id);
 }
 console.log(catalog.length+' public audio streams matched the final 512 bytes of their original files. Login configured: '+health.loginConfigured);

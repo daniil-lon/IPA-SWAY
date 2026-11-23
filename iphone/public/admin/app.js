@@ -47,9 +47,9 @@ function showPanel() {
   adminShell.hidden = false;
 }
 
-async function navigate(view, { push = true } = {}) {
+async function navigate(view, { push = true, force = false } = {}) {
   const section = VIEWS[view] ? view : DEFAULT_VIEW;
-  if (currentView === section && !push) return;
+  if (currentView === section && !push && !force) return;
 
   if (typeof currentCleanup === 'function') {
     try { currentCleanup(); } catch (error) { console.error(error); }
@@ -77,7 +77,7 @@ async function navigate(view, { push = true } = {}) {
     viewRoot.innerHTML = '<div class="card"><div class="empty"><strong>Раздел не загрузился</strong>' +
       '<span>Проверьте соединение и попробуйте ещё раз.</span><br><br>' +
       '<button class="btn" type="button" data-retry>Повторить</button></div></div>';
-    viewRoot.querySelector('[data-retry]')?.addEventListener('click', () => navigate(section, { push: false }));
+    viewRoot.querySelector('[data-retry]')?.addEventListener('click', () => navigate(section, { push: false, force: true }));
   }
 }
 

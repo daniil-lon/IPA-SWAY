@@ -9,23 +9,26 @@ export async function communitySignals(db,tracks){
  if(cached?.db===db&&cached.until>Date.now())return response(cached.data);
  const credits=tracks.map(t=>({id:t.id,canonical:t.canonicalId||t.id,artists:[...new Set(artistCredits(t).map(canonical))]}));
  const month=Math.floor(Date.now()/86400000)-29;
- const [plays,artists,likes,reactions]=await Promise.all([
-  db.prepare(`WITH ids AS (SELECT json_extract(value,'$.id') id,json_extract(value,'$.canonical') ref FROM json_each(?))
-   SELECT ids.ref track,COUNT(*) plays,COUNT(DISTINCT CASE WHEN l.day>=? THEN l.uid END) listeners
-   FROM chart_listens l JOIN ids ON l.track=ids.id GROUP BY ids.ref`).bind(JSON.stringify(credits),month).all(),
-  db.prepare(`WITH credits AS (
-   SELECT json_extract(t.value,'$.id') track,a.value artist
-   FROM json_each(?) t JOIN json_each(t.value,'$.artists') a
-  ) SELECT c.artist,COUNT(*) plays,COUNT(DISTINCT CASE WHEN l.day>=? THEN l.uid END) listeners
-   FROM chart_listens l JOIN credits c ON c.track=l.track GROUP BY c.artist`).bind(JSON.stringify(credits),month).all(),
-  db.prepare(`WITH ids AS (SELECT json_extract(value,'$.id') id,json_extract(value,'$.canonical') ref FROM json_each(?))
-   SELECT ids.ref track,COUNT(DISTINCT uid) likes FROM likes JOIN ids ON likes.track=ids.id GROUP BY ids.ref`).bind(JSON.stringify(credits)).all(),
+ // Aggregate stored activity once. Joining the whole catalogue through json_each
+ // makes D1 inspect thousands of virtual rows for every listen or like.
+ const [plays,likes,reactions]=await Promise.all([
+  db.prepare('SELECT track,uid,COUNT(*) plays,MAX(day>=?) recent FROM chart_listens GROUP BY track,uid').bind(month).all(),
+  db.prepare('SELECT track,uid FROM likes').all(),
   db.prepare('SELECT kind,ref,COUNT(*) likes FROM collection_reactions GROUP BY kind,ref').all()
  ]);
- const trackStats={},artistStats={},collections={},ids=new Map(credits.map(t=>[t.id,t.canonical]));
- for(const r of plays.results||[]){const key=ids.get(r.track);if(key){const s=trackStats[key]??={plays:0,listeners:0,likes:0};s.plays+=r.plays;s.listeners+=r.listeners;}}
- for(const r of likes.results||[]){const key=ids.get(r.track);if(key)(trackStats[key]??={plays:0,listeners:0,likes:0}).likes+=r.likes;}
- for(const r of artists.results||[])artistStats[r.artist]={plays:r.plays,listeners:r.listeners};
+ const trackStats={},artistStats={},collections={},ids=new Map(credits.map(t=>[t.id,t]));
+ const trackFans=new Map(),artistFans=new Map(),trackLikes=new Map();
+ const addFan=(map,key,uid)=>{if(!map.has(key))map.set(key,new Set());map.get(key).add(uid);};
+ for(const r of plays.results||[]){
+  const credit=ids.get(r.track);if(!credit)continue;
+  const key=credit.canonical,s=trackStats[key]??={plays:0,listeners:0,likes:0};s.plays+=r.plays;
+  if(r.recent)addFan(trackFans,key,r.uid);
+  for(const artist of credit.artists){(artistStats[artist]??={plays:0,listeners:0}).plays+=r.plays;if(r.recent)addFan(artistFans,artist,r.uid);}
+ }
+ for(const r of likes.results||[]){const credit=ids.get(r.track);if(credit)addFan(trackLikes,credit.canonical,r.uid);}
+ for(const [key,fans] of trackFans)trackStats[key].listeners=fans.size;
+ for(const [key,fans] of artistFans)artistStats[key].listeners=fans.size;
+ for(const [key,fans] of trackLikes)(trackStats[key]??={plays:0,listeners:0,likes:0}).likes=fans.size;
  for(const r of reactions.results||[])collections[r.kind+':'+r.ref]=r.likes;
  const data={tracks:trackStats,artists:artistStats,collections,listenerDays:30,playDefinition:'qualified_listener_track_day'};
  // Popularity scans chart_listens twice and likes once; ten minutes is fresh enough and keeps D1 reads flat.

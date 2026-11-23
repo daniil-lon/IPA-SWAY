@@ -1,8 +1,20 @@
 const partSize=8192,maxSize=32*1024*1024;
-let interrupted=false,socketMode=false,active=0;const waiting=[];
-async function slot(task){
- if(active>=6)await new Promise(resolve=>waiting.push(resolve));active++;
- try{return await task();}finally{active--;waiting.shift()?.();}
+const state=globalThis.__swayTransferState??={interrupted:false,socketMode:false};
+try{const saved=JSON.parse(sessionStorage.getItem('sway-transfer')||'null');if(saved&&Date.now()-saved.at<1800000)Object.assign(state,{interrupted:true,socketMode:!!saved.socketMode});}catch{}
+export const interruptedConnection=()=>state.interrupted;
+export function markInterruptedConnection(socket=false){
+ state.interrupted=true;state.socketMode||=socket;
+ try{sessionStorage.setItem('sway-transfer',JSON.stringify({at:Date.now(),socketMode:state.socketMode}));}catch{}
+}
+const lanes={asset:{active:0,max:4,waiting:[]},media:{active:0,max:8,waiting:[]}};
+async function slot(task,kind,signal){
+ const lane=lanes[kind];signal?.throwIfAborted();
+ if(lane.active>=lane.max)await new Promise((resolve,reject)=>{
+  const item={resolve:()=>{signal?.removeEventListener('abort',cancel);resolve();}};
+  const cancel=()=>{const at=lane.waiting.indexOf(item);if(at>=0)lane.waiting.splice(at,1);reject(signal.reason);};
+  lane.waiting.push(item);signal?.addEventListener('abort',cancel,{once:true});
+ });else lane.active++;
+ try{signal?.throwIfAborted();return await task();}finally{const next=lane.waiting.shift();if(next)next.resolve();else lane.active--;}
 }
 export function isTransferAsset(path){
  try{path=decodeURIComponent(path);}catch{return false;}
@@ -53,7 +65,7 @@ async function socketPart(url,offset,version,signal,kind='asset'){
 }
 export async function fetchAssetPart(url,offset,version,signal,kind='asset',preferSocket=false){
  return slot(async()=>{
-  if(socketMode||preferSocket)return socketPart(url,offset,version,signal,kind);
+  if(state.socketMode||preferSocket)return socketPart(url,offset,version,signal,kind);
   for(let attempt=0;;attempt++){
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2500),cancel=()=>controller.abort();
    signal?.addEventListener('abort',cancel,{once:true});
@@ -66,15 +78,15 @@ export async function fetchAssetPart(url,offset,version,signal,kind='asset',pref
     return checkedPart({range:response.headers.get('Content-Range'),version:response.headers.get('X-Sway-Version'),type:response.headers.get('X-Sway-Type')||response.headers.get('Content-Type'),encoding:response.headers.get('X-Sway-Encoding'),size:response.headers.get('X-Sway-Size')},data,offset,version);
    }catch(error){
     signal?.throwIfAborted();if(error.status===404||error.status===412)throw error;
-    if(typeof WebSocket==='function'){socketMode=true;return socketPart(url,offset,version,signal,kind);}
+    if(typeof WebSocket==='function'){markInterruptedConnection(true);return socketPart(url,offset,version,signal,kind);}
     if(attempt>=2)throw error;
    }finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
   }
- });
+ },kind,signal);
 }
 export async function fetchAsset(input,{recovery=false}={}){
  const request=input instanceof Request?input:new Request(input),url=new URL(request.url);
- if(!recovery&&!interrupted){try{return await completeFetch(request);}catch(error){request.signal?.throwIfAborted();interrupted=true;}}
+ if(!recovery&&!state.interrupted){try{return await completeFetch(request);}catch(error){request.signal?.throwIfAborted();markInterruptedConnection();}}
  const first=await fetchAssetPart(url,0,'',request.signal);let data=new Uint8Array(first.total);data.set(first.data);
  let cursor=first.data.length;
  await Promise.all(Array.from({length:Math.min(4,Math.ceil((first.total-cursor)/partSize))},async()=>{
