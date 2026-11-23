@@ -39,6 +39,12 @@ mix.rewind();assert.equal(second.paused,true);assert.equal(second.currentTime,0)
 mix.tick(candidate);await Promise.resolve();first.currentTime=48;second.currentTime=3;
 assert.equal(mix.finish(candidate),true);assert.equal(committed.audio,second);assert.equal(committed.t.id,'next');assert.equal(second.volume,.7);assert.equal(first.paused,true);
 mix.cancel();
+// Without crossfade the next track is buffered but never mixed, and the end switch reuses it.
+const plain=[new FakeAudio(),new FakeAudio()];plain[1].paused=true;plain[0].currentTime=40;
+const gapless=makeTransition(plain,{getCurrent:()=>({id:'quiet'}),onCommit:(audio,t)=>{committed={audio,t};}});
+gapless.tick(candidate,{blend:false});assert.equal(gapless.preparedId,'next');
+plain[0].currentTime=47.5;gapless.tick(candidate,{blend:false});await Promise.resolve();assert.equal(plain[1].playCalls,0,'no overlap without crossfade');
+plain[0].currentTime=48;assert.equal(gapless.finish(candidate),true);assert.equal(committed.audio,plain[1]);assert.equal(plain[1].playCalls,1);assert.equal(plain[0].paused,true);
 assert.deepEqual(parseLRC('[offset:100]\n[00:01.50][00:02.50]A\n[00:03.000]B'),[{at:1.6,text:'A'},{at:2.6,text:'A'},{at:3.1,text:'B'}]);
 const song={title:'Песня',artist:'Первый, Второй',seconds:190};
 assert.equal(matchingLyrics({trackName:'Песня',artistName:'Второй',duration:191},song),true);

@@ -102,3 +102,15 @@ body[data-page=home] .mx-wave .wave-deck-button{height:calc(var(--deck-height) -
  .mx-wave .wave-deck-glyph{width:36px;height:36px;top:-22px}.mx-wave .wave-deck-glyph.wave-deck-avatar{width:37px;height:37px;top:-23px}
  .mx-wave .wave-deck-button span:not(.wave-deck-glyph){font-size:11px}
 }
+
+/* Track row gestures: swipe left = play next, swipe right = like, long press = menu. */
+.row[data-row],.chart-row[data-row],.album-track-row[data-row]{position:relative;touch-action:pan-y;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.row[data-row]>*,.chart-row[data-row]>*,.album-track-row[data-row]>*{transition:transform .22s cubic-bezier(.2,.73,.24,1)}
+.row[data-swiping]>*,.chart-row[data-swiping]>*,.album-track-row[data-swiping]>*{transition:none;transform:translateX(var(--swipe,0))}
+.row[data-swipe-label]::before,.chart-row[data-swipe-label]::before,.album-track-row[data-swipe-label]::before{content:attr(data-swipe-label);position:absolute;inset:0;display:flex;align-items:center;padding:0 16px;border-radius:inherit;color:#ffffffa8;font-size:13px;font-weight:600;pointer-events:none}
+.row[data-swipe-side=left]::before,.chart-row[data-swipe-side=left]::before,.album-track-row[data-swipe-side=left]::before{justify-content:flex-end;background:linear-gradient(90deg,transparent 35%,#7c5cff38)}
+.row[data-swipe-side=right]::before,.chart-row[data-swipe-side=right]::before,.album-track-row[data-swipe-side=right]::before{justify-content:flex-start;background:linear-gradient(270deg,transparent 35%,#ff4f8b38)}
+.row[data-swipe-ready]::before,.chart-row[data-swipe-ready]::before,.album-track-row[data-swipe-ready]::before{color:#fff}
+.row[data-swipe-ready][data-swipe-side=left]::before,.chart-row[data-swipe-ready][data-swipe-side=left]::before,.album-track-row[data-swipe-ready][data-swipe-side=left]::before{background:linear-gradient(90deg,transparent 20%,#7c5cff70)}
+.row[data-swipe-ready][data-swipe-side=right]::before,.chart-row[data-swipe-ready][data-swipe-side=right]::before,.album-track-row[data-swipe-ready][data-swipe-side=right]::before{background:linear-gradient(270deg,transparent 20%,#ff4f8b70)}
+@media (prefers-reduced-motion:reduce){.row[data-row]>*,.chart-row[data-row]>*,.album-track-row[data-row]>*{transition:none}}

@@ -5,7 +5,7 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-msMeydUik0W1sqNDjQGTpoOTytNP65n6N9TIKJ0ln0I=' 'sha256-seM3imUTyX/M70so1Yn5IePJV9b0tFsbhHdTnv8fAxw=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-msMeydUik0W1sqNDjQGTpoOTytNP65n6N9TIKJ0ln0I=' 'sha256-nhSjNUoDd3gNwWCCgUyUAyM4a0u1JRz24kk4YNfa4mU=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
 /media/*
   Cache-Control: public, max-age=86400
 # sway:worker:start
@@ -17,13 +17,13 @@
 /admin-client.js
   X-Sway-Size: 6857
 /app-bundle.js
-  X-Sway-Size: 639357
+  X-Sway-Size: 647128
 /app.js
-  X-Sway-Size: 233874
+  X-Sway-Size: 238203
 /asset-loader.js
   X-Sway-Size: 6573
 /audio-transition.js
-  X-Sway-Size: 9407
+  X-Sway-Size: 9388
 /boot.js
   X-Sway-Size: 3931
 /browse.css
@@ -33,33 +33,33 @@
 /collection.css
   X-Sway-Size: 5781
 /cover-colors.js
-  X-Sway-Size: 155777
+  X-Sway-Size: 155775
 /discovery.js
-  X-Sway-Size: 4070
+  X-Sway-Size: 3999
 /equalizer.js
   X-Sway-Size: 5269
 /haptics.js
   X-Sway-Size: 830
 /iphone-reference.css
-  X-Sway-Size: 10343
+  X-Sway-Size: 12319
 /listening-account.js
   X-Sway-Size: 3614
 /listening-stats.js
   X-Sway-Size: 3598
 /listening-tools.js
-  X-Sway-Size: 2912
+  X-Sway-Size: 3195
 /loudness.js
   X-Sway-Size: 1834
 /lyrics.css
-  X-Sway-Size: 8098
+  X-Sway-Size: 8045
 /lyrics.js
-  X-Sway-Size: 10944
+  X-Sway-Size: 10803
 /media-loader.js
-  X-Sway-Size: 5215
+  X-Sway-Size: 5138
 /media-session.js
   X-Sway-Size: 3165
 /mobile.css
-  X-Sway-Size: 14372
+  X-Sway-Size: 14370
 /motion.js
   X-Sway-Size: 2808
 /music-intelligence.js
@@ -69,35 +69,37 @@
 /music-sources.js
   X-Sway-Size: 6287
 /native-audio.js
-  X-Sway-Size: 3537
+  X-Sway-Size: 3783
 /next-stage.css
   X-Sway-Size: 1701
 /offline-storage.js
   X-Sway-Size: 5770
 /playback-recovery.js
-  X-Sway-Size: 3236
+  X-Sway-Size: 3188
 /player-scene.js
   X-Sway-Size: 6128
 /player.css
-  X-Sway-Size: 18419
+  X-Sway-Size: 18765
 /playlist-match.js
   X-Sway-Size: 2003
 /playlists.js
-  X-Sway-Size: 16578
+  X-Sway-Size: 16474
 /profile-ui.js
   X-Sway-Size: 12173
 /pwa-prompt.js
   X-Sway-Size: 7263
 /refinements.css
   X-Sway-Size: 22375
+/row-gestures.js
+  X-Sway-Size: 3025
 /share-card.js
   X-Sway-Size: 5811
 /sleep-timer.js
-  X-Sway-Size: 2148
+  X-Sway-Size: 3673
 /smart-search.js
   X-Sway-Size: 1421
 /style.css
-  X-Sway-Size: 36629
+  X-Sway-Size: 36627
 /styles.css
   X-Sway-Size: 343
 /sway-glass.css
@@ -105,9 +107,9 @@
 /sway-reference.css
   X-Sway-Size: 24686
 /sway.css
-  X-Sway-Size: 233809
+  X-Sway-Size: 236009
 /system-media.js
-  X-Sway-Size: 4469
+  X-Sway-Size: 4468
 /taste-ui.js
   X-Sway-Size: 11024
 /taste.css
@@ -117,7 +119,7 @@
 /wave-filters.js
   X-Sway-Size: 2927
 /wave-light.js
-  X-Sway-Size: 18340
+  X-Sway-Size: 18010
 /wave-mark.js
   X-Sway-Size: 701
 /wave-stations.js

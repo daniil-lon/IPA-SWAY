@@ -9,7 +9,7 @@ export function queueSnapshot(value,ids){
  if(!value||typeof value!=='object')return null;
  const queue=[...new Set((Array.isArray(value.queue)?value.queue:[]).filter(id=>typeof id==='string'&&ids.has(id)))].slice(0,2000);
  if(!queue.length||!queue.includes(value.current))return null;
- return {queue,current:value.current,position:Math.max(0,Math.min(86400,Number(value.position)||0)),mode:['wave','playlist','likes','chart','offline','track','track-wave','normal','album','artist','shuffle'].includes(value.mode)?value.mode:'track',shuffle:value.shuffle===true,repeat:value.repeat===true,nextUp:queue.includes(value.nextUp)?value.nextUp:'',waveMood:['bright','calm','focus','night'].includes(value.waveMood)?value.waveMood:'',waveMix:value.waveMix&&typeof value.waveMix==='object'?value.waveMix:null};
+ return {queue,current:value.current,position:Math.max(0,Math.min(86400,Number(value.position)||0)),mode:['wave','playlist','likes','chart','offline','track','track-wave','normal','album','artist','shuffle'].includes(value.mode)?value.mode:'track',shuffle:value.shuffle===true,repeat:['all','one'].includes(value.repeat)?value.repeat:value.repeat===true?'one':'off',original:value.shuffle===true&&Array.isArray(value.original)?[...new Set(value.original.filter(id=>typeof id==='string'&&ids.has(id)))].slice(0,2000):null,nextUp:queue.includes(value.nextUp)?value.nextUp:'',source:typeof value.source==='string'?value.source.slice(0,80):'',waveMood:['bright','calm','focus','night'].includes(value.waveMood)?value.waveMood:'',waveMix:value.waveMix&&typeof value.waveMix==='object'?value.waveMix:null};
 }
 const queueBindings=new WeakMap();
 export function mountQueueDrag(root,{commit,feedback}){

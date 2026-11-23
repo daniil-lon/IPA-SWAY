@@ -94,7 +94,8 @@ export function makeTransition(elements,{enabled=true,mixer=null,onCommit,source
   try{standby.currentTime=0;}catch{}
   mix();
  }
- function tick(next){
+ // blend=false only buffers the next track, so the switch at the end stays gapless without a crossfade.
+ function tick(next,{blend=true}={}){
   if(handoffTimer)return;
   if(!enabled)return;
   if(!next||active.paused||!Number.isFinite(active.duration)){
@@ -111,7 +112,7 @@ export function makeTransition(elements,{enabled=true,mixer=null,onCommit,source
    if(remaining>transitionSeconds+5&&(active.currentTime<4||ahead<12))return;
    candidate=next;candidateSource=source;phase='preloaded';standby.preload='auto';standby.src=source;
   }
-  if(!supported||!nativeVolume&&!mixer?.canMix())return;
+  if(!blend||!supported||!nativeVolume&&!mixer?.canMix())return;
   if(phase==='mixing'){mix();return;}
   if(!timer&&remaining<=transitionSeconds+1)timer=setInterval(()=>tick(candidate),32);
   if(phase!=='preloaded'||standby.seeking||standby.readyState<3||standby.error||remaining<.65)return;
@@ -135,7 +136,7 @@ export function makeTransition(elements,{enabled=true,mixer=null,onCommit,source
  }
  function finish(next,{manual=false}={}){
   if(manual&&(standby.readyState<2||handoffTimer))return false;
-  if(!supported||!next||candidate?.id!==next.id||candidateSource!==sourceFor(next)||phase==='rejected'||standby.ended||standby.error){
+  if(!supported&&phase!=='preloaded'||!next||candidate?.id!==next.id||candidateSource!==sourceFor(next)||phase==='rejected'||standby.ended||standby.error){
    cancel();return false;
   }
   // Keep the same element and request even if buffering outlasted the current track.

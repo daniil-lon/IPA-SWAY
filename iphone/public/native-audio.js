@@ -28,6 +28,9 @@ export function connectNativeAudio(elements){
  });
 }
 export function nativeQueue(element,items){const s=channels.get(element);if(!s)return;send('queue',{channel:s.channel,items:items.slice(0,1000).map(t=>({id:t.id,title:t.title,artist:t.artist,art:new URL(t.provider?t.art:'/api/artwork?id='+encodeURIComponent(t.id),location.origin).href,url:new URL(t.audio,location.origin).href}))});}
+// The service loops the queue itself, so repeat-all also receives the tracks before the current one.
+let repeatSent='';
+export function nativeRepeat(mode){if(!nativeAndroid||mode===repeatSent)return;repeatSent=mode;send('repeat',{value:mode});}
 export function nativeEqualizer(elements,saved){
  const state={enabled:!!saved?.enabled,levels:[0,1,2,3,4,5].map(i=>Math.max(-12,Math.min(12,Number(saved?.levels?.[i])||0)))};
  const update=()=>send('equalizer',state),setMixGain=(el,value)=>{const s=channels.get(el);if(!s)return false;send('gain',{channel:s.channel,value});return true;};

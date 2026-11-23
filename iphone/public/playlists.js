@@ -87,7 +87,7 @@ export function createPlaylists({api,icon,html,getTracks,getUser,isOffline,onCha
    try{await add(list,id);b.innerHTML=icon('check');b.setAttribute('aria-label','В плейлисте «'+list.name+'»');}catch{notice('Не удалось добавить трек в плейлист.');}finally{b.disabled=false;}return;
   }
   const list=find(b.dataset.playlistPlay||b.dataset.playlistRename||b.dataset.playlistDelete||b.dataset.playlistShare||b.dataset.playlistLeave||b.dataset.listId);if(!list)return;
-  if(b.dataset.playlistPlay){onPlay(list.tracks);return;}
+  if(b.dataset.playlistPlay){onPlay(list.tracks,list.name);return;}
   if(b.dataset.playlistShare){
    const layer=modal('Музыка вместе','<p class="quiet">Приглашение действует 7 дней. Слушатель может включать музыку, редактор — добавлять и убирать треки.</p><div class="playlist-invite-actions"><button class="btn primary" type="button" data-invite-role="viewer">Пригласить слушателя</button><button class="btn" type="button" data-invite-role="editor">Пригласить редактора</button><button class="btn" type="button" data-revoke>Отозвать ссылки</button></div><div class="playlist-members"></div>');
    layer.querySelectorAll('[data-invite-role]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{const r=await api('/api/playlists/'+list.id+'/invites','POST',{role:button.dataset.inviteRole});if(navigator.share)await navigator.share({title:list.name,url:r.url});else{try{await navigator.clipboard.writeText(r.url);layer.querySelector('[role=status]').textContent='Ссылка скопирована';}catch{layer.querySelector('[role=status]').textContent=r.url;}}}catch(e){if(e.name!=='AbortError')layer.querySelector('[role=status]').textContent='Не удалось создать приглашение.';}finally{button.disabled=false;}});

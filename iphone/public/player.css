@@ -35,6 +35,8 @@ body:has(dialog[open]){overflow:hidden}
 .mx-info-list>*:hover{background:#fff1}
 .mx-info-list svg{width:22px;height:22px}
 .queue-label{margin:16px 2px 5px;color:#b9b6be;font-size:13px;font-weight:550;letter-spacing:0}
+.queue-source{display:flex;flex-direction:column;gap:2px;margin:2px 2px 6px}.queue-source small{color:#b9b6be;font-size:12px}.queue-source strong{font-size:16px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue-earlier{opacity:.55;transition:opacity .2s}.queue-earlier:hover,.queue-earlier:focus-within{opacity:1}
 .download-list{display:grid;gap:4px}
 .download-list>div{display:grid;grid-template-columns:47px minmax(0,1fr) 44px;align-items:center;gap:10px;min-height:60px}
 .download-list img{width:47px;height:47px;object-fit:cover;border-radius:5px}
