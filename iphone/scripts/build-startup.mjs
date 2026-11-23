@@ -3,6 +3,7 @@ import {readFile,writeFile,readdir,stat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
+import './build-wave-pulses.mjs';
 
 // One stylesheet and one module avoid a dependency waterfall on mobile links.
 await build({entryPoints:['public/styles.css'],outfile:'public/sway.css',bundle:true,minify:true,external:['/art/*'],target:['safari16','chrome100']});

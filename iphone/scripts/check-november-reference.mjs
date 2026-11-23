@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {chromium,webkit,devices} from 'playwright';
 import {servePlayer} from './player-fixture.mjs';
 
@@ -10,6 +11,11 @@ const mot=source.find(t=>t.artist==='MOT'&&t.title==='День и Ночь');
 const catalog=[mot,...source.filter(t=>t.artist==='MOT'&&t.id!==mot.id).slice(0,3),source.find(t=>t.id==='toxi-solido')].map((t,i)=>({...t,audio:i%2?'/media/test-next.wav':'/media/test-tone.wav',seconds:26}));
 let fixtureInsets={top:0,bottom:0};
 const fixture=await servePlayer({catalog,handler:async(req,res,path)=>{
+ if(path==='/'){
+  const css=(await readFile('public/sway.css','utf8')).replace(/env\(safe-area-inset-top(?:\s*,[^)]+)?\)/g,fixtureInsets.top+'px').replace(/env\(safe-area-inset-bottom(?:\s*,[^)]+)?\)/g,fixtureInsets.bottom+'px');
+  const hash=createHash('sha256').update(css).digest('base64');
+  res.writeHead(200,{'Content-Type':'text/html'});res.end((await readFile('public/index.html','utf8')).replace(/data-css-hash="[^"]+"/,'data-css-hash="'+hash+'"'));return true;
+ }
  if(/^\/[a-z-]+\.css$/.test(path)){
   let body=await readFile(new URL('../public'+path,import.meta.url),'utf8');
   body=body.replace(/env\(safe-area-inset-top(?:\s*,[^)]+)?\)/g,fixtureInsets.top+'px').replace(/env\(safe-area-inset-bottom(?:\s*,[^)]+)?\)/g,fixtureInsets.bottom+'px');
@@ -47,16 +53,21 @@ try{
    await page.goto(fixture.origin+'/#home');await page.locator('.wave-light[data-ready]').waitFor();await page.waitForTimeout(700);
    assert.equal(await page.locator('.wave-finder,[data-action=wave-related]').count(),0);
    assert.ok(await page.evaluate(()=>document.scrollingElement.scrollHeight<=innerHeight));
-   assert.ok(await page.evaluate(()=>document.querySelector('.wave-deck-frame').getBoundingClientRect().bottom<=document.querySelector('.mobile-nav').getBoundingClientRect().top+1),'Carousel fits above navigation');
-   const atmosphere=await page.locator('.wave-light').evaluate(c=>({height:c.clientHeight,viewport:innerHeight,bottom:[...c.getContext('2d').getImageData(Math.floor(c.width/2),c.height-2,1,1).data]}));
-   assert.equal(atmosphere.height,viewport.height);assert.equal(atmosphere.bottom[3],255);assert.ok(Math.max(...atmosphere.bottom.slice(0,3))>12);
+   const homeGeometry=await page.evaluate(()=>Object.fromEntries(['.mx-wave','.mx-head','.mx-stage','.mx-wave-bar','.wave-filter-bar','.wave-deck-frame','.mobile-nav'].map(s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return [s,{y:r.y,height:r.height,bottom:r.bottom,margin:getComputedStyle(e).margin,padding:getComputedStyle(e).padding}];})));
+   assert.ok(homeGeometry['.wave-deck-frame'].bottom<=homeGeometry['.mobile-nav'].y+1,'Carousel fits above navigation: '+JSON.stringify(homeGeometry));
+   // Metadata can replace the home canvas after the first ready event. Wait
+   // for the current surface to paint, including its static reduced-motion frame.
+   await page.waitForFunction(()=>{const c=document.querySelector('.wave-light[data-ready]');return c?.width&&c.height&&c.getContext('2d').getImageData(Math.floor(c.width/2),c.height-2,1,1).data[3]===255;});
+   const atmosphere=await page.locator('.wave-light[data-ready]').evaluate(c=>({height:c.clientHeight,viewport:innerHeight,bottom:[...c.getContext('2d').getImageData(Math.floor(c.width/2),c.height-2,1,1).data]}));
+   assert.equal(atmosphere.height,viewport.height);assert.equal(atmosphere.bottom[3],255);assert.ok(Math.max(...atmosphere.bottom.slice(0,3))<=12,'Atmosphere fades continuously into the navigation background');
    await page.screenshot({path:`${out}/after-home-${label}.png`,scale:'css'});
    await page.locator('.mx-start').click();await page.waitForFunction(()=>document.querySelector('#audio').currentTime>.2);await page.waitForTimeout(750);
    await page.screenshot({path:`${out}/after-playing-${label}.png`,scale:'css'});
    const deck=page.locator('.wave-deck');await deck.focus();
    const from=await deck.evaluate(el=>el.scrollLeft);await deck.press('ArrowRight');await page.waitForFunction(left=>Math.abs(document.querySelector('.wave-deck').scrollLeft-left)>25,from,{timeout:5000});const to=await deck.evaluate(el=>el.scrollLeft);
    assert.ok(Math.abs(to-from)>25,JSON.stringify({label,from,to,deck:await deck.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth,center:el.querySelector('[data-centered]')?.dataset.deckSlot}))}));
-   await page.locator('.mx-track').click();await page.locator('.mx-full-extra').waitFor();await page.waitForTimeout(800);
+   await page.locator('.mx-track').click();await page.locator('.mx-full-extra').waitFor();
+   await page.waitForFunction(()=>document.querySelector('#dialog').getAnimations().every(animation=>animation.playState!=='running'));
    const geometry=await page.locator('.mx-full').evaluate(el=>{
     const box=s=>{const e=el.querySelector(s),r=e.getBoundingClientRect(),c=getComputedStyle(e);return {x:r.x,y:r.y,width:r.width,height:r.height,background:c.backgroundColor,border:c.borderWidth,filter:c.backdropFilter||c.webkitBackdropFilter};};
     return {header:box('header'),art:box('.full-artwork'),scene:box('.player-scene'),radio:box('.track-mix'),surface:getComputedStyle(el).getPropertyValue('--cover-surface').trim(),system:getComputedStyle(document.documentElement).getPropertyValue('--system-surface').trim()};

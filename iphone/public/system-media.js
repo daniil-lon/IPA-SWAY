@@ -35,10 +35,10 @@ export function createSystemMedia(elements,getAudio,actions){
   if(!session||typeof MediaMetadata==='undefined')return;
   safe(()=>{session.metadata=track&&!suspended?new MediaMetadata({title:track.title,artist:track.artist,album:track.albumTitle||track.album||'Sway',artwork}):null;});
  }
- function sync(){
+ function sync(force=false){
   if(!session)return;
   const audio=getAudio(),state=!track||suspended?'none':audio.paused||audio.ended||audio.error?'paused':'playing';
-  if(lastState!==state){lastState=state;safe(()=>session.playbackState=state);}
+  if(force||lastState!==state||session.playbackState!==state)safe(()=>{session.playbackState=state;lastState=state;});
  }
  function position(){
   if(!session||suspended||!track||!session.setPositionState)return;
@@ -51,10 +51,10 @@ export function createSystemMedia(elements,getAudio,actions){
   // Music uses track navigation; seek-forward/backward can select podcast-style controls on iOS.
   for(const name of ['seekbackward','seekforward'])safe(()=>session.setActionHandler(name,null));
   for(const [name,handler] of Object.entries(actions))if(!['seekbackward','seekforward'].includes(name))safe(()=>session.setActionHandler(name,track&&!suspended?handler:null));
-  metadata();position();sync();
+  metadata();position();sync(true);
  }
  function attach(el){
-  for(const event of ['loadedmetadata','durationchange','timeupdate','seeked','ratechange','emptied'])el.addEventListener(event,()=>{if(el===getAudio())position();});
+  for(const event of ['loadedmetadata','durationchange','timeupdate','seeked','ratechange','emptied'])el.addEventListener(event,()=>{if(el===getAudio()){position();sync();}});
   for(const event of ['play','playing','pause','ended','error'])el.addEventListener(event,()=>{if(el===getAudio()){if(event==='playing')publish();else sync();}});
  }
  elements.forEach(attach);

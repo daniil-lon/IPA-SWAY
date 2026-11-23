@@ -12,11 +12,12 @@ const ASSETS={fetch:async request=>{
 }};
 await mkdir('artifacts/mobile-loading',{recursive:true});
 for(const engine of [chromium,webkit]){
- let recovered=0;
+ let recovered=0,warm=false,warmRequests=0;
  const fixture=await servePlayer({handler:async(req,res,path)=>{
   if(path==='/sw.js'){res.writeHead(200,{'Content-Type':'text/javascript','Content-Length':'999999'});res.write('// stalled worker');return true;}
   if(path==='/api/catalog'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({items:[track,nextTrack],total:2,next:null}));return true;}
   if(path==='/api/asset-part'){
+   if(warm){warmRequests++;res.writeHead(503);res.end();return true;}
    recovered++;const response=await assetPart(new Request('http://localhost'+req.url),{ASSETS});
    res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return true;
   }
@@ -24,6 +25,7 @@ for(const engine of [chromium,webkit]){
    res.writeHead(200,{'Content-Type':'text/html','Content-Security-Policy':csp});res.end(await readFile(new URL('index.html',root)));return true;
   }
   if(path==='/app-bundle.js'||path==='/sway.css'){
+   if(warm){warmRequests++;res.writeHead(503);res.end();return true;}
    const original=await readFile(new URL(path.slice(1),root));
    // Same length and successful HTTP status, but stale/corrupt content. It
    // must be recovered and must never execute under the exact build CSP.
@@ -44,6 +46,14 @@ for(const engine of [chromium,webkit]){
   assert.equal(state.controller,false);assert.equal(state.offline,'worker-download');assert.equal(state.styles,true);assert.deepEqual(state.csp,[]);assert.deepEqual(errors,[]);assert.ok(recovered>0);
   report.push({engine:engine.name(),ms:Date.now()-started,recovered,state});
   console.log('PASS: '+engine.name()+' verified boot despite a stalled worker and same-length corrupted code/CSS');
+  warm=true;
+  const reloaded=Date.now();await page.reload({waitUntil:'commit'});
+  try{await page.waitForFunction(()=>document.body.dataset.loadStage==='ready',null,{timeout:2500});}
+  catch(error){console.log({engine:engine.name(),warmRequests,state:await page.evaluate(()=>({...document.body.dataset})),errors});throw error;}
+  assert.equal(warmRequests,0,'A verified saved build must not wait for unavailable code/CSS');
+  assert.deepEqual(await page.evaluate(()=>window.cspFailures),[]);
+  report.push({engine:engine.name(),warmMs:Date.now()-reloaded,warmRequests});
+  console.log('PASS: '+engine.name()+' warm boot from verified build while asset delivery is unavailable');
  }finally{await browser.close();fixture.server.closeAllConnections();await new Promise(resolve=>fixture.server.close(resolve));}
 }
 await writeFile('artifacts/mobile-loading/independent-bootstrap.json',JSON.stringify(report,null,2));

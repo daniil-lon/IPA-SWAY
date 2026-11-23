@@ -1,4 +1,5 @@
 import { api, esc, fmtNum, fmtDuration, fmtDay, fmtDateTime, toast, errorToast, num } from '../core.js';
+import {mountExperience} from './experience.js';
 
 export const title = 'Аналитика';
 export const crumb = 'Sway Music · Контент';
@@ -215,4 +216,5 @@ export async function render(root) {
   root.querySelector('[data-refresh]').addEventListener('click', async () => { await load(); toast('Аналитика обновлена'); });
 
   await load();
+  const experience=document.createElement('section');root.append(experience);await mountExperience(experience);
 }

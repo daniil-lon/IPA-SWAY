@@ -34,7 +34,7 @@ Sway — музыкальное приложение для повседневн
 
 ## Проверенный установочный файл
 
-- Путь: `public/downloads/Sway-Android.apk`.
+- Путь от корня проекта: `android/releases/Sway-Android.apk` (существующий артефакт; изменения исходников не обновляют его автоматически).
 - Размер: 3 887 126 байт.
 - Package ID: `ru.academmix.sway`.
 - versionName: `1.0.1`; versionCode: `2`.

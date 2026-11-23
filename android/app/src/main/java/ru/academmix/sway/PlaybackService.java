@@ -17,6 +17,7 @@ import androidx.media3.session.*;
 import org.json.*;
 import java.io.File;
 import java.util.*;
+@androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 public final class PlaybackService extends MediaSessionService {
  public interface Observer {void state(JSONObject data);}
  public static PlaybackService instance;public Observer observer;
@@ -30,7 +31,14 @@ public final class PlaybackService extends MediaSessionService {
    players[i]=new ExoPlayer.Builder(this,renderers).setMediaSourceFactory(new DefaultMediaSourceFactory(source)).build();players[i].setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),false);players[i].setHandleAudioBecomingNoisy(true);players[i].setWakeMode(C.WAKE_MODE_LOCAL);final int ch=i;
    players[i].addListener(new Player.Listener(){@Override public void onPlayerError(PlaybackException error){publish(ch,true);}@Override public void onEvents(Player p,Player.Events e){if(p.getPlayWhenReady()&&!focused){focused=audioManager.requestAudioFocus(audioFocus)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;if(!focused)p.pause();}publish(ch,false);}});
   }
-  Intent launch=new Intent(this,MainActivity.class);PendingIntent pending=PendingIntent.getActivity(this,0,launch,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);session=new MediaSession.Builder(this,players[0]).setSessionActivity(pending).build();handler.post(ticker);
+  Intent launch=new Intent(this,MainActivity.class);PendingIntent pending=PendingIntent.getActivity(this,0,launch,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);session=new MediaSession.Builder(this,players[0]).setSessionActivity(pending).setCallback(new MediaSession.Callback(){
+   @Override public MediaSession.ConnectionResult onConnect(MediaSession s,MediaSession.ControllerInfo controller){
+    // Queue URLs come only from the origin-checked WebView bridge. External
+    // controllers may control playback, but must never choose cookie-bearing URLs.
+    Player.Commands commands=MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon().remove(Player.COMMAND_SET_MEDIA_ITEM).remove(Player.COMMAND_CHANGE_MEDIA_ITEMS).build();
+    return new MediaSession.ConnectionResult.AcceptedResultBuilder(s).setAvailablePlayerCommands(commands).build();
+   }
+  }).build();handler.post(ticker);
  }
  @Override public MediaSession onGetSession(MediaSession.ControllerInfo info){return session;}
  private void volume(int ch){players[ch].setVolume(muted[ch]?0:Math.max(0,Math.min(1,gains[ch]*volumes[ch]*duck)));}

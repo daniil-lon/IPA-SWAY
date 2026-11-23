@@ -3,6 +3,7 @@ import java.nio.ByteBuffer;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.AudioProcessor;
+@androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 public final class SixBandProcessor extends BaseAudioProcessor {
  private final EqualizerDsp dsp=new EqualizerDsp();private volatile double[] levels=new double[6];private volatile boolean enabled=false,dirty=true;private int rate=48000,channels=2;
  public void update(double[] value,boolean on){levels=value.clone();enabled=on;dirty=true;}

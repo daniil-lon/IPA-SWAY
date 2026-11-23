@@ -1,6 +1,7 @@
 import {build} from 'esbuild';
 import {readFile,writeFile,readdir,unlink} from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import {gzipSync} from 'node:zlib';
 
 // Preserve the module registration used by installed versions. No runtime
 // imports are needed before the recovery worker can install.
@@ -8,7 +9,7 @@ const result=await build({entryPoints:['service-worker.mjs'],outfile:'public/sw.
 const body=result.outputFiles[0].contents;
 // Stay well below the 16 KB connection cutoff that the chunked recovery path
 // exists for, while leaving room for the media-session loader.
-assert.ok(body.length<15360,'The recovery worker must stay small and self-contained');
+assert.ok(body.length<15360&&gzipSync(body).length<8192,'The self-contained worker must fit in one small compressed response');
 await writeFile('public/sw.js',body);
 for(const name of (await readdir('public')).filter(name=>/^sw-part-[a-f0-9]{16}\.js$/.test(name)))await unlink('public/'+name);
 let headers=(await readFile('public/_headers','utf8')).replace(/\n# sway:worker:start[\s\S]*?# sway:worker:end\n?/,'\n').trimEnd();

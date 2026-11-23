@@ -1,4 +1,6 @@
 import {normalizeWaveMark} from './wave-mark.js';
+import {getTrackAccents,loadTrackAccents} from './track-accents.js';
+export {getTrackAccents} from './track-accents.js';
 
 const idle=[187,57,42,246];
 export const wavePatterns=[['ribbons','Ленты'],['tide','Капли'],['halos','Искры'],['prism','Линза'],['petals','Свой знак']];
@@ -15,8 +17,6 @@ const color=(h,s,l,a)=>'hsl('+h+' '+s+'% '+l+'% / '+clamp(a,0,1)+')';
 const waveTone=([h,s,,a]=idle)=>s>=90?[h,s,a]:[h+hueDelta(h,216)*.58,clamp(s*.55,25,47),a+hueDelta(a,224)*.58];
 export const waveSurface=track=>{const [h,s]=waveTone(track?.palette||idle);return 'hsl('+Math.round(h)+' '+Math.round(s)+'% '+(s>=90?30:17)+'%)';};
 const ease=value=>value*value*(3-2*value);
-let timings={}, pulseLoad;
-export const getTrackAccents=id=>timings[id];
 
 export function sampleAccent(events,seconds){
  if(!events?.length||!Number.isFinite(seconds))return 0;
@@ -34,12 +34,6 @@ export function sampleAccent(events,seconds){
   value=Math.max(value,swell*events[j*2+1]*.01);
  }
  return value;
-}
-function loadPulses(){
- pulseLoad??=fetch('/wave-pulses.json').then(response=>{
-  if(!response.ok)throw new Error('Pulse data unavailable');
-  return response.json();
- }).then(data=>{timings=data;}).catch(()=>{pulseLoad=null;});
 }
 
 function glassBand(ctx,w,h,phase,palette,beat,band){
@@ -144,14 +138,19 @@ function lightSurface(ctx,x,y,rx,ry,time,seed,hue,sat,accent,strength){
  glass.addColorStop(0,color(hue,sat,67,.06));glass.addColorStop(.35,color(hue,sat,57,.22));glass.addColorStop(.66,color(accent,sat,30,.10));glass.addColorStop(1,color(hue,sat,44,.02));ctx.fillStyle=glass;ctx.fill();
  const edge=ctx.createLinearGradient(x-rx,y-ry,x+rx,y+ry);
  edge.addColorStop(0,color(hue,sat,73,.07));edge.addColorStop(.3,color(hue,sat,80,.75));edge.addColorStop(.57,color(accent,sat,65,.26));edge.addColorStop(.83,color(hue,sat,77,.52));edge.addColorStop(1,color(accent,sat,65,0));ctx.strokeStyle=edge;
- for(const [width,blur,opacity] of [[rx*.26,rx*.11,.16],[rx*.10,rx*.055,.27],[rx*.038,rx*.026,.40]]){
-  ctx.save();ctx.globalAlpha*=opacity;ctx.filter='blur('+Math.max(1,blur)+'px)';ctx.lineWidth=width;trace();ctx.stroke();ctx.restore();
+ // Layered strokes instead of ctx.filter blur: canvas filters are very slow on iOS.
+ for(const [width,opacity] of [[rx*.30,.05],[rx*.26,.10],[rx*.10,.20],[rx*.038,.40]]){
+  ctx.save();ctx.globalAlpha*=opacity;ctx.lineWidth=width;trace();ctx.stroke();ctx.restore();
  }
  trace();ctx.clip();
  for(let i=0;i<3;i++){
   const bend=Math.sin(time*.54+seed+i)*ry*.36,curl=Math.cos(time*.44+i)*rx*.35;
-  ctx.save();ctx.filter='blur('+Math.max(4,rx*.045)+'px)';ctx.globalAlpha*=i===1?.23:.14;ctx.lineWidth=rx*.08;ctx.strokeStyle=edge;
-  ctx.beginPath();ctx.moveTo(x-rx*1.1,y+ry*(i*.47-.8));ctx.bezierCurveTo(x+curl,y+bend-ry*.95,x-rx*.45,y-bend+ry*.82,x+rx*.57,y+ry*(i*.39-.1));ctx.bezierCurveTo(x+rx*.9,y-ry*.3-bend,x-rx*.1,y-ry*.5,x+rx*1.2,y+ry*.76);ctx.stroke();ctx.restore();
+  const wisp=()=>{
+   ctx.beginPath();ctx.moveTo(x-rx*1.1,y+ry*(i*.47-.8));ctx.bezierCurveTo(x+curl,y+bend-ry*.95,x-rx*.45,y-bend+ry*.82,x+rx*.57,y+ry*(i*.39-.1));ctx.bezierCurveTo(x+rx*.9,y-ry*.3-bend,x-rx*.1,y-ry*.5,x+rx*1.2,y+ry*.76);
+  };
+  const base=i===1?.23:.14;
+  ctx.save();ctx.globalAlpha*=base*.5;ctx.lineWidth=rx*.17;ctx.strokeStyle=edge;wisp();ctx.stroke();ctx.restore();
+  ctx.save();ctx.globalAlpha*=base;ctx.lineWidth=rx*.07;ctx.strokeStyle=edge;wisp();ctx.stroke();ctx.restore();
  }
  ctx.restore();
 }
@@ -246,7 +245,7 @@ export function mountWaveLight(canvas,{track,playing=false,started=playing,getAu
  let ctx;
  try{ctx=canvas?.getContext('2d',{alpha:true});}catch{}
  if(!ctx)return null;
- loadPulses();
+ void loadTrackAccents(track?.id);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
  const animate=()=>!reduced.matches;
  let id=track?.id, visualKey=track?.visualKey, target=track?.palette||idle, tone=target, from=target, changed=0;
@@ -257,20 +256,24 @@ export function mountWaveLight(canvas,{track,playing=false,started=playing,getAu
  const active=()=>visible&&!covered&&document.visibilityState!=='hidden'&&!signal.aborted;
  function request(){
   if(frame||throttle||!width||!height||!active()||!dirty&&!animate())return;
-  if(!dirty&&!motion)throttle=setTimeout(()=>{throttle=0;if(active())frame=requestAnimationFrame(draw);},76);
-  else frame=requestAnimationFrame(draw);
+  if(!dirty){
+   // Pace idle repaints: ~25 fps while playing, ~7 fps when paused.
+   const wait=Math.max(0,(playing?40:150)-(last?performance.now()-last:999));
+   if(wait>4)throttle=setTimeout(()=>{throttle=0;if(active())frame=requestAnimationFrame(draw);},wait);
+   else frame=requestAnimationFrame(draw);
+  }else frame=requestAnimationFrame(draw);
  }
  function draw(now){
   frame=0;
   if(!active())return;
   const step=animate(), elapsed=last?now-last:0;
-  if(dirty||elapsed>=28){
+  if(dirty||elapsed>=(playing?40:150)){
    if(step)phase+=Math.min(elapsed,138)/1000*(motion?(playing?.89:.56):(playing?.20:.115));
    const progress=step?clamp((now-changed)/650,0,1):1, mix=ease(progress);
    tone=progress===1?target:from.map((value,i)=>value+mix*((i===0||i===3)?hueDelta(value,target[i]):target[i]-value));
    mixNow=step?mixFrom+(mode-mixFrom)*ease(clamp((now-modeChanged)/(motion?360:220),0,1)):mode;
    const audio=getAudio?.();
-   const beatTarget=step&&playing&&audio&&!audio.paused&&!audio.seeking&&!audio.muted&&audio.volume>0?sampleAccent(timings[id],audio.currentTime):0;
+   const beatTarget=step&&playing&&audio&&!audio.paused&&!audio.seeking&&!audio.muted&&audio.volume>0?sampleAccent(getTrackAccents(id),audio.currentTime):0;
    pulse=step?pulse+(beatTarget-pulse)*(1-Math.exp(-Math.min(160,elapsed||32)/(beatTarget>pulse?62:190))):0;
    const beat=pulse*(motion?.68:.24), [h,s,l,a]=tone, palette=[h,clamp(s,28,98),l,a];
    const blend=step?ease(clamp((now-patternChanged)/(motion?450:230),0,1)):1;
@@ -315,6 +318,7 @@ export function mountWaveLight(canvas,{track,playing=false,started=playing,getAu
   setTrack(next){
    if(!next||next.id===id&&next.visualKey===visualKey)return;
    id=next.id;visualKey=next.visualKey;from=tone;target=next.palette||idle;changed=performance.now();pulse*=.4;dirty=true;request();
+   void loadTrackAccents(id);
   },
   setPlaying(value){
    if(value===playing)return;

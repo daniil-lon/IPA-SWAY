@@ -13,7 +13,7 @@ export function downloadableAudio(track,canPlay){
  try{
   const url=new URL(track.audio,location.origin);
   const internal=url.pathname.startsWith('/media/')&&/\.(mp3|ogg|oga|opus|m4a|wav|flac|aac|webm)$/i.test(url.pathname);
-  if(url.origin!==location.origin||!(internal||url.pathname==='/api/custom-media/'+encodeURIComponent(track.id)))return null;
+  if(url.origin!==location.origin||!(internal||url.pathname==='/api/custom-media/'+encodeURIComponent(track.id)+'.mp3'))return null;
   url.hash='';return url.href;
  }catch{return null;}
 }

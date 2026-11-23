@@ -62,6 +62,18 @@ export function mountPlayerScene(root,t,{old,color,direction,motion}){
  const art=root.querySelector('.full-artwork'), cover=art?.querySelector('.full-cover');
  const lines=root.querySelector('.player-track-lines'), copy=lines?.querySelector('.player-track-copy');
  if(!art||!cover||!copy){previous.remove();return;}
+ // Update the title immediately. Keep a decoded cover over the new image while
+ // its bytes arrive, rather than delaying the entire player or exposing a blank.
+ const priorCover=old.querySelector('[data-cover-hold]')||old.querySelector('.full-cover:not(.departing)');
+ if(priorCover&&!(cover.complete&&cover.naturalWidth)){
+  const held=priorCover.cloneNode(true);held.classList.add('departing');held.dataset.coverHold='true';held.setAttribute('aria-hidden','true');held.style.transform='none';art.append(held);
+  const release=()=>{
+   if(!root.isConnected){held.remove();return;}
+   if(!motion){held.remove();return;}
+   outgoing(held,[{opacity:1},{opacity:0}],{duration:180,easing:'ease-out'});
+  };
+  prepareArtwork(t.art).promise.then(release);
+ }
  previous.classList.replace('is-current','departing');scene.prepend(previous);
  if(!motion){
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;

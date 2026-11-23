@@ -193,6 +193,7 @@ export async function getCustomTracks(env) {
 }
 
 export async function serveCustomMedia(req, path, env, { private: isPrivate = false } = {}) {
+  if (!['GET','HEAD'].includes(req.method)) return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
   const match = path.match(/^\/api\/custom-media\/([a-zA-Z0-9_-]+)\.mp3$/);
   if (!match || !env.DB) return new Response('Not Found', { status: 404 });
   const trackId = match[1];
@@ -227,6 +228,7 @@ export async function serveCustomMedia(req, path, env, { private: isPrivate = fa
         if (object.range?.offset !== undefined) {
           const start = object.range.offset;
           const length = object.range.length ?? object.size;
+          headers.set('Content-Length', String(length));
           headers.set('Content-Range', 'bytes ' + start + '-' + (start + length - 1) + '/' + object.size);
           return new Response(object.body, { status: 206, headers });
         }
@@ -495,6 +497,7 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
       return json({ error: 'Пароль уже настроен' }, 403);
     }
     const body = await readJSON(req);
+    if (typeof body?.password !== 'string') return json({ error: 'invalid_password' }, 400);
     const pw = (body?.password || '').trim();
     if (pw.length < 12) return json({ error: 'Пароль должен быть от 12 символов' }, 400);
     await setAdminPassword(pw, env);
@@ -558,6 +561,7 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
   if (pathname === '/api/admin/login' && method === 'POST') {
     const ip = clientIp(req);
     const body = await readJSON(req);
+    if (typeof body?.password !== 'string') return json({ error: 'invalid_password' }, 400);
     const pw = (body?.password || '').trim();
 
     // Rate limiting (canonical schema: admin_attempts(ip, attempts, last_attempt))
@@ -774,6 +778,7 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
 
     if (method === 'POST') {
       const body = await readJSON(req, 65536);
+      if (!body || ['id','slug','title','description','cover_url','badge'].some(key => body[key] !== undefined && typeof body[key] !== 'string')) return json({error:'invalid_content'},400);
       const id = body.id || crypto.randomUUID();
       const slug = (body.slug || body.title || 'playlist').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
       const title = (body.title || '').trim();
@@ -827,6 +832,7 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
 
     if (method === 'POST') {
       const body = await readJSON(req, 16384);
+      if (!body || ['id','title','subtitle','badge','cover_url','target_url'].some(key => body[key] !== undefined && typeof body[key] !== 'string')) return json({error:'invalid_content'},400);
       const id = body.id || crypto.randomUUID();
       const title = (body.title || '').trim();
       if (!title) return json({ error: 'Заголовок обязателен' }, 400);
@@ -881,6 +887,7 @@ export async function adminRoute(req, path, method, url, env, staticTracksCount 
 
     if (method === 'POST') {
       const body = await readJSON(req, 16384);
+      if (!body || ['id','title','message','level','action_label','action_url'].some(key => body[key] !== undefined && typeof body[key] !== 'string')) return json({error:'invalid_content'},400);
       const id = body.id || crypto.randomUUID();
       const title = (body.title || 'Объявление').trim();
       const message = (body.message || '').trim();
