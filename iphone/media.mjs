@@ -1,13 +1,19 @@
 // Workers Static Assets ignores Range. Provide a bounded byte stream for media clients.
-export async function media(req, env, knownSize) {
+export async function media(req, env) {
  const range=req.headers.get('Range');
  if(req.method!=='GET'||!range) return env.ASSETS.fetch(req);
  const match=/^bytes=(\d{0,16})-(\d{0,16})$/.exec(range);
  if(!match||(!match[1]&&!match[2]))return env.ASSETS.fetch(req);
  const response=await env.ASSETS.fetch(new Request(req.url,{headers:{'Accept-Encoding':'identity'}}));
  if(response.status!==200||!response.body)return response;
- const total=Number(response.headers.get('Content-Length')) || knownSize;
- if(!Number.isSafeInteger(total)||total<=0||response.headers.has('Content-Encoding'))return response;
+ if(response.headers.has('Content-Encoding'))return response;
+ let total=Number(response.headers.get('Content-Length'));
+ if(!Number.isSafeInteger(total)||total<=0){
+  // Without a length header the catalogue size is only a hint: a stale value cuts the stream
+  // short ("Incomplete media") and Safari then stops the track. Measure the real file instead.
+  const body=new Uint8Array(await response.arrayBuffer());
+  return sliced(body,response,match);
+ }
  const ifRange=req.headers.get('If-Range');
  if(ifRange&&ifRange!==response.headers.get('ETag'))return response;
  const offset=match[1]?Number(match[1]):Math.max(total-Number(match[2]),0);
@@ -40,4 +46,13 @@ export async function media(req, env, knownSize) {
  const fixed=new FixedLengthStream(size);
  slice.pipeTo(fixed.writable).catch(()=>{});
  return new Response(fixed.readable,{status:206,headers});
+}
+function sliced(body,response,match){
+ const total=body.byteLength;
+ const offset=match[1]?Number(match[1]):Math.max(total-Number(match[2]),0);
+ const end=match[1]&&match[2]?Math.min(Number(match[2]),total-1):total-1;
+ if(!total||offset>end||offset>=total||(!match[1]&&Number(match[2])===0))return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+total,'Accept-Ranges':'bytes','Cache-Control':'no-store'}});
+ const headers=new Headers(response.headers);
+ headers.set('Accept-Ranges','bytes');headers.set('Content-Range','bytes '+offset+'-'+end+'/'+total);headers.set('Content-Length',String(end-offset+1));
+ return new Response(body.subarray(offset,end+1),{status:206,headers});
 }

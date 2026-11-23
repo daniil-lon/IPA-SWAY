@@ -172,11 +172,16 @@ async function verifyTelegramWebAppData(initData, botToken) {
   return null;
 }
 
+// Playback, history and catalogue requests all ask for uploads; reading the whole table each time
+// was a steady D1 cost. Admin writes call clearCustomTracksCache(), so edits still show at once here.
+let customCache = null;
+export function clearCustomTracksCache() { customCache = null; }
 export async function getCustomTracks(env) {
   if (!env.DB) return [];
+  if (customCache?.db === env.DB && customCache.until > Date.now()) return customCache.tracks;
   try {
     const { results } = await env.DB.prepare("SELECT * FROM custom_tracks ORDER BY created_at DESC").all();
-    return (results || []).map(r => ({
+    const tracks = (results || []).map(r => ({
       id: r.id,
       title: r.title,
       artist: r.artist,
@@ -187,6 +192,8 @@ export async function getCustomTracks(env) {
       seconds: r.seconds || 0,
       moods: r.moods ? JSON.parse(r.moods) : []
     }));
+    customCache = { db: env.DB, tracks, until: Date.now() + 300000 };
+    return tracks;
   } catch {
     return [];
   }
@@ -329,7 +336,41 @@ export async function handlePublicActiveBroadcasts(env) {
 }
 
 // Telegram Bot Webhook
-export async function handleTelegramWebhook(req, env, staticTracksCount = 7000) {
+const escapeBotHtml = value => String(value ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+// Listener-facing bot: a welcome with an «open» button, and any text searches the catalogue.
+async function publicBot(text, send, env, searchTracks) {
+  const origin = env.PUBLIC_ORIGIN || 'https://music.academmix.ru';
+  const open = [{ text: '▶ Открыть Sway', web_app: { url: origin + '/?src=tg_bot' } }];
+  if (!text || text === '/start' || text.startsWith('/start ') || text === '/help') {
+    await send(
+      '🎧 <b>Sway — бесплатная музыка прямо в браузере</b>\n\n' +
+      '«Моя волна» подбирает треки под настроение, есть тексты песен, эквалайзер и офлайн.\n\n' +
+      'Напиши название трека или исполнителя — пришлю ссылку.\n' +
+      'На iPhone: открой ' + origin + ' в Safari → «Поделиться» → «На экран „Домой“».',
+      { inline_keyboard: [open] }
+    );
+    return;
+  }
+  if (text.startsWith('/')) { await send('Напиши название трека или исполнителя 🙂', { inline_keyboard: [open] }); return; }
+  const found = text.length >= 2 && text.length <= 80 && searchTracks ? await searchTracks(text).catch(() => []) : [];
+  if (!found.length) { await send('Ничего не нашёл по запросу «' + escapeBotHtml(text.slice(0, 80)) + '». Попробуй написать иначе.', { inline_keyboard: [open] }); return; }
+  const link = t => origin + '/t/' + encodeURIComponent(t.id) + '?src=tg_bot';
+  await send(
+    '🔎 Нашёл:\n\n' + found.map((t, i) => (i + 1) + '. <a href="' + escapeBotHtml(link(t)) + '">' + escapeBotHtml(t.title) + '</a> — ' + escapeBotHtml(t.artist)).join('\n'),
+    { inline_keyboard: found.slice(0, 3).map(t => [{ text: '▶ ' + String(t.title).slice(0, 40), url: link(t) }]).concat([open]) }
+  );
+}
+async function promoSourcesSummary(env) {
+  if (!env.DB) return '';
+  try {
+    const since = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+    const { results = [] } = await env.DB.prepare('SELECT source, SUM(visits) AS visits, SUM(installs) AS installs FROM promo_visits WHERE day >= ? GROUP BY source ORDER BY visits DESC LIMIT 8').bind(since).all();
+    if (!results.length) return '📣 Источники за 7 дней: пока нет переходов по меткам\n\n';
+    return '📣 <b>Источники за 7 дней</b>\n' + results.map(r => `• ${escapeBotHtml(r.source)}: ${r.visits} визитов, ${r.installs} установок`).join('\n') + '\n\n';
+  } catch { return ''; }
+}
+
+export async function handleTelegramWebhook(req, env, staticTracksCount = 7000, { searchTracks } = {}) {
   const update = await req.json().catch(() => null);
   if (!update || !update.message) return json({ ok: true });
 
@@ -380,13 +421,9 @@ export async function handleTelegramWebhook(req, env, staticTracksCount = 7000) 
     }
   }
 
-  // Verify chat authorization. An unbound bot must never issue an admin session.
-  if (!adminChatId) {
-    await send('🔒 Бот не привязан к администратору. Отправьте <code>/bind &lt;пароль&gt;</code>.');
-    return json({ ok: true });
-  }
-  if (String(chatId) !== String(adminChatId)) {
-    await send('🔒 Доступ запрещен. Отправьте <code>/bind &lt;пароль&gt;</code> для авторизации.');
+  // Everyone except the bound admin chat gets the public listener bot; it never issues admin sessions.
+  if (!adminChatId || String(chatId) !== String(adminChatId)) {
+    if (msg.chat?.type === 'private') await publicBot(text, send, env, searchTracks);
     return json({ ok: true });
   }
 
@@ -446,6 +483,7 @@ export async function handleTelegramWebhook(req, env, staticTracksCount = 7000) 
       `👥 Слушателей в базе: <b>${listeners}</b>\n` +
       `❤️ Поставлено лайков: <b>${likes}</b>\n` +
       `📁 Создано плейлистов: <b>${playlists}</b>\n\n` +
+      await promoSourcesSummary(env) +
       `🟢 CDN Cloudflare: Активен (EEUR/VIE)`
     );
     return json({ ok: true });

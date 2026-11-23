@@ -5,21 +5,21 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-msMeydUik0W1sqNDjQGTpoOTytNP65n6N9TIKJ0ln0I=' 'sha256-nhSjNUoDd3gNwWCCgUyUAyM4a0u1JRz24kk4YNfa4mU=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-msMeydUik0W1sqNDjQGTpoOTytNP65n6N9TIKJ0ln0I=' 'sha256-CtU61CPqrfIkG/R0zU26DUigp/TYwZbu41D5MZczbsU=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
 /media/*
   Cache-Control: public, max-age=86400
 # sway:worker:start
 /sw.js
   Cache-Control: public, max-age=0, must-revalidate, no-transform
-  X-Sway-Size: 12562
+  X-Sway-Size: 12997
 # sway:worker:end
 # sway:integrity:start
 /admin-client.js
   X-Sway-Size: 6857
 /app-bundle.js
-  X-Sway-Size: 647128
+  X-Sway-Size: 656045
 /app.js
-  X-Sway-Size: 238203
+  X-Sway-Size: 245243
 /asset-loader.js
   X-Sway-Size: 6573
 /audio-transition.js
@@ -41,11 +41,11 @@
 /haptics.js
   X-Sway-Size: 830
 /iphone-reference.css
-  X-Sway-Size: 12319
+  X-Sway-Size: 15254
 /listening-account.js
   X-Sway-Size: 3614
 /listening-stats.js
-  X-Sway-Size: 3598
+  X-Sway-Size: 2862
 /listening-tools.js
   X-Sway-Size: 3195
 /loudness.js
@@ -87,7 +87,9 @@
 /profile-ui.js
   X-Sway-Size: 12173
 /pwa-prompt.js
-  X-Sway-Size: 7263
+  X-Sway-Size: 8439
+/recap-card.js
+  X-Sway-Size: 3812
 /refinements.css
   X-Sway-Size: 22375
 /row-gestures.js
@@ -107,7 +109,7 @@
 /sway-reference.css
   X-Sway-Size: 24686
 /sway.css
-  X-Sway-Size: 236009
+  X-Sway-Size: 238557
 /system-media.js
   X-Sway-Size: 4468
 /taste-ui.js

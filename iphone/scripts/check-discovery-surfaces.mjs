@@ -19,7 +19,10 @@ try{
     await page.screenshot({path:'artifacts/sway-discover-'+engine+'-'+width+'.png',scale:'css',fullPage:true});
     const started=Date.now();await page.locator('.discover-search').click();await page.waitForURL('**/#search');
     if(width>=731){
-     assert.equal(await page.locator('#search-results .row').count(),80);
+     // Every width uses the phone layout now: an empty query shows the intro, results start once someone types.
+     assert.equal(await page.locator('#search-results .row').count(),0);
+     await page.locator('#search-query').fill('а');
+     await page.waitForFunction(()=>document.querySelectorAll('#search-results .row').length===80);
      await page.getByRole('button',{name:'Показать ещё',exact:true}).click();
      assert.equal(await page.locator('#search-results .row').count(),160);
      await page.locator('#search-query').fill(tracks.at(-1).title);

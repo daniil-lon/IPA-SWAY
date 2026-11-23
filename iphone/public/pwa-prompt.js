@@ -3,6 +3,11 @@ const DISMISS_KEY = 'tonika.pwa-dismissed';
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
 let deferredPrompt = null;
+// Private Safari tabs and blocked site data make localStorage throw; the prompt must never break the app.
+const dismissedAt=()=>{try{return Number(localStorage.getItem(DISMISS_KEY))||0;}catch{return 0;}};
+const rememberDismiss=()=>{try{localStorage.setItem(DISMISS_KEY,Date.now().toString());}catch{}};
+// Links from a Telegram channel open in an in-app browser, where «На экран „Домой“» does not exist.
+export const inAppBrowser=()=>typeof navigator!=='undefined'&&/Telegram|Instagram|FBAN|FBAV|VKClient|CriOS|FxiOS|EdgiOS|YaBrowser|OPT\//i.test(navigator.userAgent);
 export async function requestInstall(onToast){
  if(isStandaloneApp()){onToast?.('Sway уже открыт как приложение');return;}
  if(deferredPrompt){const prompt=deferredPrompt;deferredPrompt=null;await prompt.prompt();await prompt.userChoice;hideBanner();return;}
@@ -48,8 +53,7 @@ export function initPwaPrompt({ onToast, offer=false } = {}) {
 
   // On iOS Safari (not standalone), show after a brief delay if not recently dismissed
   if (offer && isIOS()) {
-    const dismissedAt = Number(localStorage.getItem(DISMISS_KEY)) || 0;
-    if (Date.now() - dismissedAt > SEVEN_DAYS) {
+    if (Date.now() - dismissedAt() > SEVEN_DAYS) {
       setTimeout(() => {
         if (!isStandaloneApp()) {
           renderBanner({ onToast });
@@ -59,14 +63,19 @@ export function initPwaPrompt({ onToast, offer=false } = {}) {
   }
 }
 
+// Offered once the person has actually listened for a while, never on the first screen.
+export function offerInstall({ onToast } = {}) {
+  if (!isIOS() || isStandaloneApp()) return;
+  renderBanner({ onToast });
+}
+
 export function renderBanner({ onToast } = {}) {
   // Guard again in case user launched into standalone
   if (isStandaloneApp() || document.getElementById('pwa-install-banner')) {
     return;
   }
 
-  const dismissedAt = Number(localStorage.getItem(DISMISS_KEY)) || 0;
-  if (Date.now() - dismissedAt < SEVEN_DAYS) {
+  if (Date.now() - dismissedAt() < SEVEN_DAYS) {
     return;
   }
 
@@ -97,7 +106,7 @@ export function renderBanner({ onToast } = {}) {
   syncVisibility();
 
   banner.querySelector('#pwa-close-btn')?.addEventListener('click', () => {
-    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    rememberDismiss();
     hideBanner();
   });
 
@@ -139,6 +148,12 @@ export function showIOSInstallModal() {
         <button type="button" class="btn icon pwa-modal-close" aria-label="Закрыть">&times;</button>
       </div>
       <ol class="pwa-ios-steps">
+        ${inAppBrowser() ? `<li>
+          <span class="step-num">0</span>
+          <div class="step-desc">
+            Сейчас Sway открыт внутри другого приложения. Нажмите <strong>⋯</strong> или значок компаса и выберите <strong>«Открыть в Safari»</strong>.
+          </div>
+        </li>` : ''}
         <li>
           <span class="step-num">1</span>
           <div class="step-desc">
@@ -164,6 +179,7 @@ export function showIOSInstallModal() {
           </div>
         </li>
       </ol>
+      ${inAppBrowser() ? '' : '<p class="pwa-ios-note">Открыли ссылку из Telegram? Сначала нажмите ⋯ → «Открыть в Safari».</p>'}
       <button type="button" class="btn primary pwa-modal-done">Понятно</button>
     </div>
   `;

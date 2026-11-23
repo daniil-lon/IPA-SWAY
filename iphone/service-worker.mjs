@@ -2,7 +2,7 @@ import {offlineCache,offlineRoot} from './public/offline-storage.js';
 import {fetchAsset,isTransferAsset} from './public/asset-loader.js';
 import {fetchMedia} from './public/media-loader.js';
 
-const SHELL='sway-shell-v32';
+const SHELL='sway-shell-v34';
 // All public JS/CSS/JSON/art paths are already covered by isTransferAsset.
 const core=new Set(['/','/offline.html']);
 
@@ -23,13 +23,27 @@ self.addEventListener('activate',e=>e.waitUntil((async()=>{
  const old=keys.filter(k=>k.startsWith('sway-shell-')&&k!==SHELL);
  await Promise.all(old.slice(0,-1).map(k=>caches.delete(k)));
  await self.clients.claim();
+ // The first page loads the app before this worker controls it, so nothing cached the bundle and an
+ // installed iPhone app opened offline after one online launch could not start. Warm it in the background.
+ void warmShell();
 })()));
+async function warmShell(){
+ const cache=await caches.open(SHELL);
+ await Promise.allSettled(['/app-bundle.js','/sway.css'].map(async path=>{
+  if(await cache.match(path))return;
+  const response=await fetchAsset(new Request(new URL(path,self.location.origin),{signal:AbortSignal.timeout(30000)}));
+  if(response.ok)await cache.put(path,response);
+ }));
+}
 
 async function shellResponse(event,path){
  const cache=await caches.open(SHELL);
  const saved=await cache.match(path);if(saved)return saved;
  try{
-  const response=isTransferAsset(path)?await fetchAsset(event.request):await fetch(new Request(event.request,{signal:AbortSignal.timeout(8000)}));
+  // Covers carry no exact size and are often slower than 3.5 s on mobile data. Fetching them through the
+  // strict code path flipped every later asset into 8 KB chunks and then failed the image outright.
+  const response=path.startsWith('/art/')?await fetch(new Request(event.request,{signal:AbortSignal.timeout(15000)})).catch(()=>{event.request.signal?.throwIfAborted();return fetchAsset(event.request,{recovery:true});}):
+   isTransferAsset(path)?await fetchAsset(event.request):await fetch(new Request(event.request,{signal:AbortSignal.timeout(8000)}));
   if(response.ok&&!response.redirected&&!new URL(event.request.url).search)event.waitUntil(cache.put(path,response.clone()).catch(()=>{}));
   if(response.status<500)return response;
  }catch{}

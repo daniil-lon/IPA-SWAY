@@ -11,6 +11,7 @@ import {json,profileRoute,readJSON} from './profile-store.mjs';
 import {
   adminRoute,
   getCustomTracks,
+  clearCustomTracksCache,
   serveCustomMedia,
   handlePublicPromo,
   handlePublicEditorialPlaylists,
@@ -42,7 +43,9 @@ async function maintenanceMode(env) {
 }
 async function catalogView(env,req){
  if(!catalogViewCache||Date.now()-catalogViewCache.at>catalogViewCache.ttl){
-  const entry={at:Date.now(),ttl:10000};
+  // Each rebuild reads custom_tracks, catalog_overrides and ~7000 track_languages rows. At a 10 s
+  // lifetime that alone spent the free D1 daily read quota; admin writes still reset this cache at once.
+  const entry={at:Date.now(),ttl:300000};
   const pending=(async()=>{
    const tracks=await catalogTracks(env,req);let merged;
    try{
@@ -64,6 +67,58 @@ async function catalogView(env,req){
  }
  return catalogViewCache.pending;
 }
+// Shared track links: hash routes never reach the server, so Telegram showed one generic preview for every
+// track. /t/<id> carries the cover and names for link previews and sends people on to the track in the app.
+const escapeAttr=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+async function trackPreview(req,env,url,id){
+ let track=null;
+ try{if(!loginRequired(env))track=(await catalogView(env,req)).list.find(t=>t.id===id)||null;}catch{}
+ const target='/#search/'+encodeURIComponent(id);
+ const title=track?track.title+' — '+track.artist:'Sway — музыка для момента';
+ const art=new URL(track?.art&&!track.art.endsWith('.svg')?track.art:'/art/icon-512.png',url.origin).href;
+ const page='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
+  '<title>'+escapeAttr(title)+'</title><meta http-equiv="refresh" content="0;url='+escapeAttr(target)+'">'+
+  '<meta property="og:type" content="music.song"><meta property="og:site_name" content="Sway">'+
+  '<meta property="og:title" content="'+escapeAttr(title)+'"><meta property="og:description" content="Слушай в Sway — бесплатно, прямо в браузере">'+
+  '<meta property="og:image" content="'+escapeAttr(art)+'"><meta property="og:url" content="'+escapeAttr(url.href)+'"><meta name="twitter:card" content="summary_large_image">'+
+  '</head><body style="background:#100e17;color:#fff;font-family:system-ui,sans-serif"><p><a style="color:#ffe600" href="'+escapeAttr(target)+'">Открыть в Sway</a></p></body></html>';
+ return new Response(req.method==='HEAD'?null:page,{status:track||loginRequired(env)?200:404,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','Content-Security-Policy':"default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin'}});
+}
+// Phone-side errors go to Workers Logs only (no D1): bounded size and a per-isolate budget against floods.
+let clientErrorWindow=0,clientErrorCount=0;
+async function clientError(req){
+ const minute=Math.floor(Date.now()/60000);if(minute!==clientErrorWindow){clientErrorWindow=minute;clientErrorCount=0;}
+ if(++clientErrorCount>120)return new Response(null,{status:204});
+ const text=(await req.text().catch(()=>'')).slice(0,4096);let body;try{body=JSON.parse(text);}catch{return new Response(null,{status:204});}
+ const clip=(v,n)=>String(v??'').slice(0,n);
+ console.error('Sway client error',JSON.stringify({message:clip(body?.message,300),stack:clip(body?.stack,1200),page:clip(body?.page,60),standalone:body?.standalone===true,ua:clip(req.headers.get('User-Agent'),200),country:req.cf?.country||''}));
+ return new Response(null,{status:204});
+}
+// The public bot searches the same catalogue the app shows: titles first, then artists.
+const foldText=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('ru').replace(/ё/g,'е').replace(/\s+/g,' ').trim();
+async function searchCatalog(env,req,query){
+ const q=foldText(query);if(q.length<2)return [];
+ const {list}=await catalogView(env,req),scored=[];
+ for(const t of list){
+  const title=foldText(t.title),artist=foldText(t.artist);
+  const score=title===q?0:title.startsWith(q)?1:artist.startsWith(q)?2:title.includes(q)?3:artist.includes(q)?4:(artist+' '+title).includes(q)?5:-1;
+  if(score>=0)scored.push([score,t]);
+ }
+ return scored.sort((a,b)=>a[0]-b[0]).slice(0,5).map(([,t])=>t);
+}
+// Promo attribution: one counter row per day and source (tg_post, tg_story, tg_bot…), never per person.
+let visitWindow=0,visitCount=0;
+async function recordVisit(req,env){
+ const minute=Math.floor(Date.now()/60000);if(minute!==visitWindow){visitWindow=minute;visitCount=0;}
+ if(++visitCount>300||!env.DB)return new Response(null,{status:204});
+ let body;try{body=JSON.parse((await req.text()).slice(0,512));}catch{return new Response(null,{status:204});}
+ const source=typeof body?.source==='string'&&/^[a-z0-9_-]{1,32}$/.test(body.source)?body.source:'';
+ if(!source)return new Response(null,{status:204});
+ const install=body.kind==='install'?1:0,day=new Date().toISOString().slice(0,10);
+ try{await env.DB.prepare('INSERT INTO promo_visits(day,source,visits,installs) VALUES(?,?,?,?) ON CONFLICT(day,source) DO UPDATE SET visits=visits+excluded.visits,installs=installs+excluded.installs').bind(day,source,1-install,install).run();}
+ catch(error){console.warn('Sway visit counter unavailable',String(error?.message||error).slice(0,120));}
+ return new Response(null,{status:204});
+}
 async function catalogTracks(env, req) {
  if (!catalogCache) {
   catalogCache = env.ASSETS.fetch(new Request(new URL('/catalog.json', req.url))).then(response => {
@@ -81,14 +136,8 @@ async function catalogTracks(env, req) {
 async function catalogIndex(env, req) {
  if (!catalogIndexCache) {
   catalogIndexCache = (async () => {
-   const list = await catalogTracks(env, req), sizes = new Map(), ids = new Set();
-   for (const t of list) {
-    sizes.set(t.audio, t.bytes);
-    try { sizes.set(encodeURI(t.audio), t.bytes); } catch {}
-    try { sizes.set(decodeURI(t.audio), t.bytes); } catch {}
-    ids.add(t.id);
-   }
-   return { sizes, ids };
+   const list = await catalogTracks(env, req);
+   return { ids: new Set(list.map(t => t.id)) };
   })().catch(error => { catalogIndexCache = null; throw error; });
  }
  return catalogIndexCache;
@@ -201,6 +250,7 @@ export default {async fetch(req,env,ctx){
    if(loginRequired(env)&&!await identity(req,env))return json({error:'login_required'},401);
    return path==='/api/media-socket'?assetSocket(req,env,{mediaAllowed:true}):assetPart(req,env,{mediaAllowed:true});
   }
+  if(path.startsWith('/t/')&&(method==='GET'||method==='HEAD'))return await trackPreview(req,env,url,decodeURIComponent(path.slice(3)));
   if(path==='/api/catalog'||path==='/catalog.json'){
    const required=loginRequired(env);
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
@@ -224,8 +274,7 @@ export default {async fetch(req,env,ctx){
   if(path.startsWith('/media/')){
    const required=loginRequired(env);
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
-   const {sizes}=await catalogIndex(env,req);
-   const response=await media(req,env,sizes.get(decodeURIComponent(path))||sizes.get(path));
+   const response=await media(req,env);
    if(!required)return response;
    const signed=new Response(response.body,response);
    signed.headers.set('Cache-Control','private, no-store');
@@ -240,18 +289,18 @@ export default {async fetch(req,env,ctx){
    if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
    if(method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'origin'},403);
    const list=await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
-   if(method==='PATCH'){const response=await saveCatalogOverride(req,env.DB,list);if(response.ok)catalogViewCache=null;return response;}
+   if(method==='PATCH'){const response=await saveCatalogOverride(req,env.DB,list);if(response.ok){catalogViewCache=null;clearCustomTracksCache();}return response;}
    if(method==='GET'){const a=auditCatalog(list),offset=Math.max(0,Number(url.searchParams.get('offset'))||0);return json({...a,duplicateCount:a.duplicates.length,duplicates:a.duplicates.slice(offset,offset+12),missing:a.missing.slice(0,12),next:offset+12<a.duplicates.length?offset+12:null});}
    return json({error:'method'},405);
   }
   if(path.startsWith('/api/admin/')){
    const loadTracks=async()=>applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]);
-   const response=await adminRoute(req,path,method,url,env,(await catalogTracks(env,req)).length,{ctx,loadTracks});if(method!=='GET'&&response.ok)catalogViewCache=null;return response;
+   const response=await adminRoute(req,path,method,url,env,(await catalogTracks(env,req)).length,{ctx,loadTracks});if(method!=='GET'&&response.ok){catalogViewCache=null;clearCustomTracksCache();}return response;
   }
   if(path === '/api/telegram/webhook'){
    const secret=env.TELEGRAM_WEBHOOK_SECRET;
    if(!secret||!safeEqual(req.headers.get('X-Telegram-Bot-Api-Secret-Token')||'',secret))return json({ok:true},401);
-   return await handleTelegramWebhook(req, env, (await catalogTracks(env,req)).length);
+   return await handleTelegramWebhook(req, env, (await catalogTracks(env,req)).length, {searchTracks:query=>searchCatalog(env,req,query)});
   }
   if(path === '/api/promo' && method === 'GET'){
    return await handlePublicPromo(env);
@@ -282,6 +331,8 @@ export default {async fetch(req,env,ctx){
   }
   if(!path.startsWith('/api/')&&!path.startsWith('/auth/')) return env.ASSETS.fetch(req);
   if(path.startsWith('/auth/')) return await auth(req,url,env);
+  if(path==='/api/client-error'&&method==='POST')return clientError(req);
+  if(path==='/api/visit'&&method==='POST')return recordVisit(req,env);
   if(path==='/api/health' && (method==='GET' || method==='HEAD')){
    const custom=await getCustomTracks(env);
    return json({ok:true,tracks:(await catalogTracks(env,req)).length+custom.length,loginConfigured:ready(env),loginRequired:loginRequired(env)});
@@ -373,8 +424,8 @@ export default {async fetch(req,env,ctx){
   if(path==='/api/chart/listen' && method==='POST'){
    const body=await readJSON(req);
    if(typeof body?.track!=='string'||!allIds.has(body.track))return json({error:'unknown_track'},400);
+   // Popularity refreshes on its own ten-minute cycle; clearing it per listen rescanned chart_listens after every track.
    await recordChartListen(db,user.id,body.track);
-   clearCommunityCache();
    return json({ok:true});
   }
   if(path.startsWith('/api/profile')){
@@ -402,7 +453,6 @@ export default {async fetch(req,env,ctx){
    if(method==='PUT') await db.prepare('INSERT OR IGNORE INTO likes(uid,track) VALUES(?,?)').bind(user.id,id).run();
    else if(method==='DELETE') await db.prepare('DELETE FROM likes WHERE uid=? AND track=?').bind(user.id,id).run();
    else return json({error:'method'},405);
-   clearCommunityCache();
    return json({ok:true});
   }
   return json({error:'not_found'},404);

@@ -8,7 +8,7 @@ import { setSleepTimer, setSleepTimerAfterTracks, cancelSleepTimer, getSleepTime
 import { loadWaveFilters, saveWaveFilters, applyWaveFiltersToPool, MOOD_OPTIONS, CHARACTER_OPTIONS, LANGUAGE_OPTIONS, ENERGY_OPTIONS } from './wave-filters.js';
 import {downloadPolicy,connectionAllows,downloadFits,queueSnapshot,mountQueueDrag} from './listening-tools.js';
 import { shareTrack } from './share-card.js';
-import { initPwaPrompt, isStandaloneApp, requestInstall } from './pwa-prompt.js';
+import { initPwaPrompt, isStandaloneApp, offerInstall, requestInstall } from './pwa-prompt.js';
 import {rankWave,readWaveHistory,recordWaveSignal,deckRecommendations,recommendationTitle,relatedMix} from './wave.js';
 import {mountWaveDeck} from './wave-deck.js';
 import {availableStations,waveStations} from './wave-stations.js';
@@ -30,9 +30,34 @@ import {mountLyrics} from './lyrics.js';
 import {createPlaylists} from './playlists.js';
 import {matchPlaylist,parseTrackList} from './playlist-match.js';
 import {mountRowGestures} from './row-gestures.js';
+// Promo attribution: remember the first ?src= label (tg_post, tg_story, tg_bot…), count one visit per
+// session and one install. iOS gives home-screen apps their own storage, so installs count as «installed».
+{
+ const read=key=>{try{return localStorage.getItem(key);}catch{return null;}},write=(key,value)=>{try{localStorage.setItem(key,value);}catch{}};
+ const params=new URLSearchParams(location.search),label=(params.get('src')||params.get('utm_source')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,32);
+ if(label&&!read('tonika.source'))write('tonika.source',label);
+ if(params.has('src')||params.has('utm_source')){params.delete('src');params.delete('utm_source');const rest=params.toString();try{history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);}catch{}}
+ const beacon=(source,kind)=>{try{navigator.sendBeacon?.('/api/visit',new Blob([JSON.stringify({source,kind})],{type:'application/json'}));}catch{}};
+ const source=label||read('tonika.source');let counted=false;
+ try{counted=sessionStorage.getItem('tonika.visit')==='1';sessionStorage.setItem('tonika.visit','1');}catch{}
+ if(source&&!counted)beacon(source,'visit');
+ if((matchMedia('(display-mode: standalone)').matches||navigator.standalone===true)&&!read('tonika.install-counted')){write('tonika.install-counted','1');beacon(source||'installed','install');}
+}
+// Script failures on real phones are otherwise invisible: send a handful per visit to the server log.
+{
+ let sent=0;const seen=new Set();
+ const report=(message,stack)=>{
+  const text=String(message||'').slice(0,300),key=text+'|'+String(stack||'').slice(0,80);
+  if(!text||sent>=5||seen.has(key)||!navigator.sendBeacon)return;seen.add(key);sent++;
+  const body={message:text,stack:String(stack||'').slice(0,1200),page:location.hash.slice(0,60),standalone:matchMedia('(display-mode: standalone)').matches||navigator.standalone===true};
+  try{navigator.sendBeacon('/api/client-error',new Blob([JSON.stringify(body)],{type:'application/json'}));}catch{}
+ };
+ addEventListener('error',e=>{if(e instanceof ErrorEvent)report(e.message,e.error?.stack||e.filename+':'+e.lineno);});
+ addEventListener('unhandledrejection',e=>{const r=e.reason;if(r?.name!=='AbortError')report(r?.message||r,r?.stack);});
+}
 document.addEventListener('error',event=>{
  const img=event.target;if(!(img instanceof HTMLImageElement))return;
- if(img.hasAttribute('data-account-avatar'))img.hidden=true;
+ if(img.hasAttribute('data-account-avatar')||img.classList.contains('mx-artist-photo'))img.hidden=true;
  if(img.hasAttribute('data-player-art-fallback')){
   const source=img.getAttribute('src'),fallback=img.dataset.playerArtFallback;
   if(fallback&&fallback!==source){img.dataset.playerArtFallback='/art/logo.svg';img.src=fallback;}
@@ -312,6 +337,12 @@ function deckCard(slot){
  return item;
 }
 const waveArtist=t=>artistCredits(t.artist).slice(0,3).join(', ')||t.artist;
+// The wave hero stands the lead artist's portrait behind the cover; only real photos, never the logo fallback.
+const wavePhoto=t=>resolveArtist((t.artists||artistCredits(t.artist))[0]||t.artist)?.art||'';
+function setWavePhoto(img,t){
+ const src=wavePhoto(t);img.hidden=!src;
+ if(!src)img.removeAttribute('src');else if(img.getAttribute('src')!==src)img.src=src;
+}
 let currentStory = null, storyIndex = 0, storyTimer = null;
 function storiesRail(){ return ''; }
 function getStorySlides(storyKey){
@@ -437,7 +468,8 @@ function waveFiltersBar() {
   const label = hasActive
     ? [moodObj?.id ? moodObj?.label : null, charObj?.id !== 'mix' ? charObj?.label : null, langObj?.id !== 'any' ? langObj?.label : null].filter(Boolean).join(' · ')
     : 'Настройки волны';
-  return '<div class="wave-filter-bar"><button type="button" class="wave-filters-btn" data-action="open-wave-filters">' + icon('sliders') + '<span>' + html(label) + '</span>' + (hasActive ? '<span class="wave-filter-dot"></span>' : '') + '</button></div>';
+  return '<div class="wave-filter-bar"><button type="button" class="wave-filters-btn" data-action="open-wave-filters">' + icon('sliders') + '<span>' + html(label) + '</span>' + (hasActive ? '<span class="wave-filter-dot"></span>' : '') + '</button>' +
+   (needsTaste() ? '<button type="button" class="wave-filters-btn wave-taste-btn" data-action="open-onboarding">' + icon('spark') + '<span>Любимые артисты</span></button>' : '') + '</div>';
 }
 
 let waveDraft=null;
@@ -464,7 +496,7 @@ function mobileHome(){
  return '<section id="mx-wave-root" class="mx-wave" data-track="'+t.id+'" data-playing="'+(playing||starting)+'"><div class="mx-wave-atmosphere" aria-hidden="true"><div class="mx-wave-surface is-current"></div><div class="mx-wave-surface"></div><div class="wave-bloom"><span></span><span></span><span></span></div>'+waveCanvas+'</div>'+
  navHeader('<span data-wave-heading><span class="mx-wave-caption">Моя волна</span></span>'+waveSelection(),profileLink,searchLink)+
  '<div id="sway-promo-slot"></div>'+
- '<div class="mx-stage"><div class="mx-live"><div class="mx-title-slot"><h1 id="mobile-wave-title" data-long="'+(front.length>21)+'">'+html(front)+'</h1></div><div class="mx-art"><img class="mx-wave-cover" src="'+html(t.art)+'" alt=""><button class="mx-art-open" type="button" data-action="mobile-play" aria-label="Развернуть плеер с обложки"></button></div></div>'+
+ '<div class="mx-stage"><div class="mx-live"><img class="mx-artist-photo" alt="" decoding="async"'+(wavePhoto(t)?' src="'+html(wavePhoto(t))+'"':' hidden')+'><div class="mx-title-slot"><h1 id="mobile-wave-title" data-long="'+(front.length>21)+'">'+html(front)+'</h1></div><div class="mx-art"><img class="mx-wave-cover" src="'+html(t.art)+'" alt=""><button class="mx-art-open" type="button" data-action="mobile-play" aria-label="Развернуть плеер с обложки"></button></div></div>'+
  '<div class="mx-idle"><h1>Моя волна</h1>'+button('play',current?'Продолжить волну':'Слушать волну','data-action="mobile-wave"','icon mx-start')+'</div></div><div class="mx-wave-bar">'+
  button('pause','Пауза','data-action="mobile-wave"','mx-pill mx-pause icon')+'<div class="mx-track-control"><button class="mx-pill mx-track" type="button" data-action="mobile-play"><span class="mx-track-playing">'+html(t.title)+'</span><span class="mx-track-idle">'+html(t.artist+' — '+t.title)+'</span></button><label class="mx-wave-progress" hidden><input class="wave-seek" type="range" min="0" max="1000" value="0" aria-label="Перемотка на главной"></label></div>'+button('heart','Мне нравится','data-wave-like data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"','mx-pill mx-wave-like icon')+
  '</div>'+waveInsight()+waveFiltersBar()+waveDeck()+'</section>';
@@ -715,6 +747,20 @@ function indexArtists(){
  }
 }
 
+// First visit: a few well-known artists with real photos seed the wave before there are any likes.
+const onboardPicks=new Set();
+function onboardingArtists(){
+ const seen=new Set(),list=[];
+ for(const a of artistIndex.values()){
+  if(seen.has(a))continue;seen.add(a);
+  if(!artistsData.some(x=>x.name===a.name)||!a.art||!a.art.startsWith('/art/artists/'))continue;
+  list.push(a);
+ }
+ return list.sort((x,y)=>(y.items?.length||0)-(x.items?.length||0)).slice(0,24);
+}
+// Offered as a button under the wave settings, never as a popup over «Слушать волну».
+const needsTaste=()=>!load('onboarded',false)&&!likes.size&&!preferredArtists.size&&onboardingArtists().length>=6;
+function finishOnboarding(){save('onboarded',true);document.querySelectorAll('[data-action="open-onboarding"]').forEach(b=>b.remove());}
 function resolveArtist(param){
  if(!param)return null;
  let decoded=String(param);
@@ -1445,6 +1491,7 @@ function refreshMobileWave(decoded=false){
   const front=waveArtist(t);
   slideTrack(title,()=>{title.textContent=front;title.dataset.long=front.length>21;fitWaveTitle(title);},{distance:53});
   slideTrack(cover,()=>{cover.src=t.art;},{distance:39});
+  setWavePhoto(root.querySelector('.mx-artist-photo'),t);
   slideTrack(name,()=>{name.textContent=t.title;},{distance:31});
   root.querySelector('.mx-track-idle').textContent=t.artist+' — '+t.title;
   root.querySelector('[data-wave-like]').dataset.like=t.id;
@@ -2353,6 +2400,12 @@ function paintSheet(){
     '</div></div>' +
     '<p class="wave-filter-description" style="margin-top:14px">Треки с неизвестным языком доступны в режиме «Любой язык».</p><div class="wave-filter-footer"><button type="button" class="btn" data-action="reset-wave-filters">Сбросить</button><button type="button" class="btn primary" data-action="apply-wave-filters">Включить волну</button></div>';
  }
+ if(modal==='onboarding'){
+  const picks=onboardingArtists();
+  content='<h2 class="dialog-title">Кого ты слушаешь?</h2><p class="onboard-lead">Отметь хотя бы троих — «Моя волна» сразу подстроится под тебя</p>'+
+   '<div class="onboard-grid">'+picks.map(a=>'<button type="button" class="onboard-artist" data-onboard-artist="'+html(a.name)+'" aria-pressed="'+onboardPicks.has(a.name)+'"><img src="'+html(a.art)+'" alt="" loading="lazy" decoding="async"><span>'+html(a.name)+'</span></button>').join('')+'</div>'+
+   '<div class="onboard-footer"><button type="button" class="btn" data-onboard-done="skip">Пропустить</button><button type="button" class="btn primary" data-onboard-done="save">'+(onboardPicks.size?'Готово · '+onboardPicks.size:'Готово')+'</button></div>';
+ }
  if(modal==='sleep-timer'){
   const status = getSleepTimerStatus();
   const minutes=Math.ceil((status.remainingSeconds||0)/60);
@@ -2412,7 +2465,7 @@ function open(kind,track=current){
  }
  if(['info','credits','cover'].includes(kind)&&!track)return;
  infoTrack=['info','credits','cover'].includes(kind)?track:null;
- sheet.dataset.view=kind;sheet.setAttribute('aria-label',{queue:'Очередь',delete:'Удаление аккаунта','clear-offline':'Очистить память',info:'О треке',credits:'Источник и лицензия',cover:'Обложка трека',favorites:'Мне нравится',downloads:'Скачать треки','wave-filters':'Настройки волны','sleep-timer':'Таймер сна'}[kind]||'Меню');
+ sheet.dataset.view=kind;sheet.setAttribute('aria-label',{queue:'Очередь',delete:'Удаление аккаунта','clear-offline':'Очистить память',info:'О треке',credits:'Источник и лицензия',cover:'Обложка трека',favorites:'Мне нравится',downloads:'Скачать треки','wave-filters':'Настройки волны','sleep-timer':'Таймер сна',onboarding:'Любимые исполнители'}[kind]||'Меню');
  modal=kind;$('.sheet-notice').textContent='';paintSheet();
  if(!sheet.open)sheet.showModal();
  sheet.scrollTop=0;(sheet.querySelector('[data-action="cancel-sheet"]')||sheet.querySelector('.dialog-close')).focus({preventScroll:true});
@@ -2481,6 +2534,16 @@ document.addEventListener('click',e=>{
  if(b.dataset.setFilterMood!==undefined){waveDraft.mood=b.dataset.setFilterMood;pulse('selection');paintSheet();return;}
  if(b.dataset.setFilterChar!==undefined){waveDraft.character=b.dataset.setFilterChar;pulse('selection');paintSheet();return;}
  if(b.dataset.setFilterLang!==undefined){waveDraft.language=b.dataset.setFilterLang;pulse('selection');paintSheet();return;}
+ if(b.dataset.onboardArtist!==undefined){
+  const name=b.dataset.onboardArtist;if(onboardPicks.has(name))onboardPicks.delete(name);else onboardPicks.add(name);
+  b.setAttribute('aria-pressed',String(onboardPicks.has(name)));pulse('selection');
+  const done=sheet.querySelector('[data-onboard-done="save"]');if(done)done.textContent=onboardPicks.size?'Готово · '+onboardPicks.size:'Готово';return;
+ }
+ if(b.dataset.onboardDone!==undefined){
+  const chosen=b.dataset.onboardDone==='save'?[...onboardPicks]:[];sheet.close();finishOnboarding();
+  if(chosen.length){void persistTaste({artists:[...new Set([...preferredArtists,...chosen])],genres:[...preferredGenres]}).catch(()=>{});notice('Волна настроена под твой вкус');}
+  return;
+ }
  if(b.dataset.setSleep!==undefined){
   const mins=Number(b.dataset.setSleep);
   if(mins===0){cancelSleepTimer();toast('Таймер сна выключен');}
@@ -2558,7 +2621,7 @@ document.addEventListener('click',e=>{
  if(action==='like-now'&&current&&!pendingLikes.has(current.id))pulse('like',e,b);
  const playSaved=(items)=>{if(offlineOnly())items=items.filter(t=>offlineTracks.has(t.id));if(!items.length){notice(offlineOnly()?'Нет скачанных лайков.':'Поставь лайк треку, чтобы включить эту подборку.');return;}if(modal==='favorites')dismissLayer(sheet,{slide:mobile.matches});if(playMode==='likes'&&items.some(t=>t.id===current?.id))toggle();else play(items[0],items,'likes');};
  const actions={
-  wave,'mobile-wave':()=>current?toggle():wave(),'open-sleep-timer':()=>openSleepTimerSheet(),'open-wave-filters':()=>openWaveFiltersSheet(),'reset-wave-filters':()=>{waveDraft={mood:'',character:'mix',language:'any',energy:'balanced'};paintSheet();},'apply-wave-filters':()=>{waveFilters={...(waveDraft||waveFilters)};saveWaveFilters(waveFilters);sheet.close();const began=startWave(waveFilters.mood,{explore:waveFilters.character==='discovery',mix:waveMix,mode:isWaveMode()?playMode:'wave'});sync();if(began)toast('Фильтры волны применены');},'share-card':()=>{if(current){haptic(10);shareTrack(current,{timestamp:audio.currentTime}).then(r=>{if(r?.method==='fallback-copied')toast('Ссылка скопирована в буфер');});}},'mobile-play':()=>{if(!current)startWave('',{first:tracks[0],start:false});open('full');},
+  wave,'mobile-wave':()=>current?toggle():wave(),'open-sleep-timer':()=>openSleepTimerSheet(),'open-wave-filters':()=>openWaveFiltersSheet(),'open-onboarding':()=>open('onboarding'),'reset-wave-filters':()=>{waveDraft={mood:'',character:'mix',language:'any',energy:'balanced'};paintSheet();},'apply-wave-filters':()=>{waveFilters={...(waveDraft||waveFilters)};saveWaveFilters(waveFilters);sheet.close();const began=startWave(waveFilters.mood,{explore:waveFilters.character==='discovery',mix:waveMix,mode:isWaveMode()?playMode:'wave'});sync();if(began)toast('Фильтры волны применены');},'share-card':()=>{if(current){haptic(10);shareTrack(current,{timestamp:audio.currentTime}).then(r=>{if(r?.method==='fallback-copied')toast('Ссылка скопирована в буфер');});}},'mobile-play':()=>{if(!current)startWave('',{first:tracks[0],start:false});open('full');},
   'full-top':()=>{fullClose.focus({preventScroll:true});dialog.scrollTo({top:0,behavior:motionAllowed()?'smooth':'instant'});},
   'start-personal':()=>startWave(),'wave-reset':()=>startWave(),'wave-usual':()=>startWave(),'wave-shake':()=>startWave(waveMood,{explore:true,mix:waveMix}),
   'play-chart':()=>{if(playMode==='chart'&&current)toggle();else{const items=chartItems();play(items[0],items,'chart');}},
@@ -2578,7 +2641,7 @@ document.addEventListener('click',e=>{
   'download-catalog':()=>downloadGroup(tracks),'download-favorites':()=>downloadGroup(favoriteItems()),
   'stop-downloads':()=>{if(offlineBatch?.automatic){autoCacheLikes=false;save('auto-cache-likes',false);}offlineBatch?.controller.abort();},
   'play-offline':()=>{const items=savedItems();if(items.length){if(playMode==='offline'&&offlineTracks.has(current?.id))toggle();else play(items[0],items,'offline');}},
-  share:async()=>{const t=infoTrack||current;if(!t)return;rememberSearch();const url=t.provider?t.source:new URL(location.origin+'/#search/'+encodeURIComponent(t.id)).href;try{if(navigator.share)await navigator.share({title:t.title,url});else{await navigator.clipboard.writeText(url);notice('Ссылка скопирована');}}catch(e){if(e.name!=='AbortError')notice('Не удалось поделиться ссылкой');}},
+  share:async()=>{const t=infoTrack||current;if(!t)return;rememberSearch();const url=t.provider?t.source:new URL('/t/'+encodeURIComponent(t.id),location.origin).href;try{if(navigator.share)await navigator.share({title:t.title,url});else{await navigator.clipboard.writeText(url);notice('Ссылка скопирована');}}catch(e){if(e.name!=='AbortError')notice('Не удалось поделиться ссылкой');}},
   'play-liked':()=>playSaved(mobile.matches&&page==='liked'?favoriteItems():tracksFrom([...likes].reverse())),
   'play-collection':()=>playSaved(tracksFrom([...likes].reverse())),'play-mood':()=>{if(!mood)return;const v=tracks.filter(t=>t.moods?.includes(mood[0]));if(v.length)play(v[0],v);},
   'play-artist':()=>{const artist=resolveArtist(b?.dataset?.artist||location.hash.split('/')[1]);if(artist?.items?.length){if(playing&&artist.items.some(t=>t.id===current?.id))pausePlayback();else{const items=artistPopular(artist);play(items[0],items,'normal');}}},
@@ -2873,6 +2936,16 @@ async function startApp(){
   if(offlineMode&&!manualOffline)reconnectTimer=setTimeout(reconnectOnline,30000);
  }
 }
+// Catalogue pages stream in while the user is already tapping. A render between touchstart and click
+// replaces the pressed button and Safari drops the tap, so hold re-renders until the finger lifts.
+// Home keeps its first render until the catalogue settles: the wave hero needs no partial pages.
+let touching=0,idleRender=0,released=0;
+addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')touching++;},true);
+for(const type of ['pointerup','pointercancel'])addEventListener(type,e=>{if(e.pointerType!=='mouse')touching=Math.max(0,touching-1);released=performance.now();},true);
+function renderWhenIdle(){
+ clearTimeout(idleRender);
+ idleRender=setTimeout(function attempt(){if(touching||performance.now()-released<350){idleRender=setTimeout(attempt,250);return;}if(!dialog.open&&!sheet.open)render();},touching?250:120);
+}
 async function fetchCatalog({requireNetwork=false}={}){
  delete document.body.dataset.authGate;
  main.innerHTML='<div class="sway-loader-inline"><div class="splash-ambient"></div><div class="splash-logo-wrap"><picture><source srcset="/art/logo-burst.webp" type="image/webp"><img src="/art/logo-burst.png" alt="Sway" class="splash-logo" width="140" height="140"></picture></div><div class="splash-text"><div class="splash-title">SWAY</div><div class="splash-sub">Загружаем музыку…</div></div></div>';
@@ -2883,7 +2956,7 @@ async function fetchCatalog({requireNetwork=false}={}){
    const retained=savedRemote.map(t=>restoreCommonsTrack(t,canPlay)).filter(Boolean);map=new Map([...savedItems(),...retained,...normalized].map(t=>[t.id,t]));indexAlbums();indexArtists();refreshSuggestions();
    if(complete){catalogSettled=true;void playlists.load().then(()=>{if(['library','stats'].includes(page))render();});void restoreQueue();queueLikedCache();}
   };
-  const result=await loadCatalog((list,complete)=>{accept(list,complete);if(!['search','settings','profile','u','join'].includes(page)&&!dialog.open&&!sheet.open)render();else if(page==='search')searchResults();renderResume();},error=>{document.querySelector('.catalog-retry')?.remove();if(error){const bar=document.createElement('div');bar.className='account-resume catalog-retry';bar.innerHTML='<span>Загружена часть каталога. Обнови, когда появится связь.</span><button class="btn" type="button" data-action="retry-account">Обновить</button>';main.prepend(bar);}},{requireNetwork});accept(result.items,result.settled===true);
+  const result=await loadCatalog((list,complete)=>{accept(list,complete);if(!['search','settings','profile','u','join'].includes(page)&&!dialog.open&&!sheet.open&&(complete||page!=='home'||main.querySelector('.sway-loader-inline')))renderWhenIdle();else if(page==='search')searchResults();renderResume();},error=>{document.querySelector('.catalog-retry')?.remove();if(error){const bar=document.createElement('div');bar.className='account-resume catalog-retry';bar.innerHTML='<span>Загружена часть каталога. Обнови, когда появится связь.</span><button class="btn" type="button" data-action="retry-account">Обновить</button>';main.prepend(bar);}},{requireNetwork});accept(result.items,result.settled===true);
   const metadata=async(path,fallback)=>fetch(path,{signal:AbortSignal.timeout(8000)}).then(r=>r.ok?r.json():fallback).catch(()=>fallback);
   void Promise.all([metadata('/track-moods.json',{}),metadata('/chart.json',[]),metadata('/albums.json',[]),metadata('/artists.json',[]),metadata('/track-languages.json',{})]).then(([m,chart,albums,artists,languageData])=>{measured=m||{};languages=languageData||{};if(Array.isArray(albums))albumsData=albums;if(Array.isArray(artists))artistsData=artists;if(Array.isArray(chart)&&chart.length){rankedChart=chart;chartTime=Date.now();}accept(catalogEntries,false);if(['discover','artist','album'].includes(page))render();});
   return tracks;
@@ -2897,6 +2970,9 @@ async function fetchCatalog({requireNetwork=false}={}){
 await startApp();
 
 initPwaPrompt({onToast:t=>toast(t)});
+// Suggest installing on iPhone only after 40 s of real listening in this visit, never on first sight.
+// Captured on document: crossfades swap the active <audio>, and media events do not bubble.
+{let heard=0,last=0;const listen=e=>{const a=e.target;if(a!==audio)return;const now=a.currentTime;if(!a.paused&&now>last&&now-last<2)heard+=now-last;last=now;if(heard>=40){document.removeEventListener('timeupdate',listen,true);offerInstall({onToast:t=>toast(t)});}};document.addEventListener('timeupdate',listen,true);}
 
 function openEditorialPlaylist(p) {
  const pTracks = (p.trackIds || []).map(id => map.get(id)).filter(Boolean);

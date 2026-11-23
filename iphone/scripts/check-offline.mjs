@@ -14,6 +14,11 @@ for(const [label,engine,launch,device] of cases){
  try{
   const context=await browser.newContext(device);
   await context.route(origin+'/catalog.json',route=>route.fulfill({json:sample}));
+  // The app pages the catalogue over /api/catalog (HTTP, then WebSocket); closing both makes it use the
+  // two-track /catalog.json above, as it does when the paged API is unreachable.
+  await context.route(url=>new URL(url).pathname==='/api/catalog',route=>route.abort());
+  // Playwright's WebKit does not intercept WebSockets, so refuse catalogue sockets inside the page instead.
+  await context.addInitScript(()=>{const Native=WebSocket;window.WebSocket=new Proxy(Native,{construct(target,args){if(new URL(args[0],location.href).pathname==='/api/catalog')throw new DOMException('blocked in test','NetworkError');return new target(...args);}});});
   let externalDownloads=0;
   const errors=[];
   const page=await context.newPage();page.setDefaultTimeout(18000);
@@ -29,7 +34,7 @@ for(const [label,engine,launch,device] of cases){
   await page.locator('#dialog .dialog-close').tap();
   await page.locator('#dialog').waitFor({state:'hidden'});
   await page.goto(origin+'/#library/offline',{waitUntil:'commit'});
-  await page.locator('#main').getByText(first.title).first().waitFor();
+  await page.locator('#main').getByText(first.title).filter({visible:true}).first().waitFor();
   await page.getByRole('button',{name:/^Скачать каталог/}).tap();
   await page.getByText('Сохранено: 1 из 1',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Воспроизвести '+second.title,exact:true}).waitFor();

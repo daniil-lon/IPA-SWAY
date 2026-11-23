@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Sway promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&display=block" rel="stylesheet">
+<style>
+:root{--y:#ffe600;--o:#ff8a00;--m:#ff1fd8;--bg:#0b0a10;--ink:#fff;--mute:#b9b4c6;--burst:linear-gradient(120deg,var(--y),var(--o) 48%,var(--m))}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#222;font-family:Manrope,"Segoe UI",system-ui,sans-serif;color:var(--ink);display:flex;flex-direction:column;gap:40px;padding:40px;align-items:flex-start}
+.b{position:relative;overflow:hidden;background:var(--bg);isolation:isolate}
+.b::before{content:"";position:absolute;inset:-20%;z-index:-2;background:radial-gradient(40% 35% at 78% 30%,#ff1fd855,transparent 70%),radial-gradient(45% 40% at 20% 85%,#ff8a0045,transparent 70%),radial-gradient(35% 30% at 15% 10%,#ffe60026,transparent 70%)}
+.b::after{content:"";position:absolute;inset:0;z-index:-1;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E")}
+h1,h2,.display{font-family:Unbounded,"Segoe UI",sans-serif;font-weight:900;letter-spacing:-.02em;line-height:1}
+.grad{background:var(--burst);-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo{display:flex;align-items:center;gap:.35em;font-family:Unbounded,sans-serif;font-weight:800;letter-spacing:-.01em}
+.logo img{width:1.6em;height:1.6em;object-fit:contain;border-radius:.4em}
+.pill{display:inline-flex;align-items:center;gap:.5em;padding:.55em 1.1em;border-radius:999px;font-weight:800;white-space:nowrap}
+.pill.cta{background:var(--y);color:#111}
+.pill.ghost{background:#ffffff14;border:1px solid #ffffff24;color:#fff}
+.url{font-weight:800;letter-spacing:.01em}
+/* Phone */
+.phone{position:absolute;aspect-ratio:393/852;border-radius:13%/6%;padding:1.6%;background:linear-gradient(145deg,#3a3842,#141318 40%,#2a2830);box-shadow:0 0 0 2px #ffffff1a inset,0 40px 90px #000a,0 0 120px #ff1fd822}
+.phone img.s{display:block;width:100%;height:100%;object-fit:cover;border-radius:11.6%/5.4%}
+.phone::after{content:"";position:absolute;top:3.1%;left:50%;width:31%;height:3.7%;translate:-50% 0;border-radius:99px;background:#000}
+.feat{display:flex;flex-direction:column;gap:.75em;font-size:1em}
+.feat li{list-style:none;display:flex;gap:.6em;align-items:flex-start;font-weight:700;color:#eae6f2}
+.feat li::before{content:"";flex:none;width:.62em;height:.62em;margin-top:.32em;border-radius:50%;background:var(--burst)}
+.burst-bg{position:absolute;z-index:-1;opacity:.16;filter:blur(1px)}
+</style>
+</head>
+<body>
+
+<!-- 1. Telegram post, 1280x720 -->
+<section class="b" id="post-launch" style="width:1280px;height:720px">
+ <img class="burst-bg" src="../../iphone/public/art/logo-burst.png" style="width:900px;right:-260px;top:-150px" alt="">
+ <div style="position:absolute;left:80px;top:62px;width:600px">
+  <div class="logo" style="font-size:30px"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h1 style="font-size:64px;margin-top:34px">Музыка,<br>которая <span class="grad">чувствует</span><br>момент</h1>
+  <ul class="feat" style="font-size:22px;margin-top:30px">
+   <li>«Моя волна» подбирает треки под настроение</li>
+   <li>Тексты песен, эквалайзер, таймер сна</li>
+   <li>Работает на iPhone и Android без App Store</li>
+  </ul>
+  <div style="display:flex;gap:16px;margin-top:36px;font-size:23px">
+   <span class="pill cta">Слушать бесплатно</span><span class="pill ghost url">music.academmix.ru</span>
+  </div>
+ </div>
+ <div class="phone" style="width:290px;right:290px;top:92px;rotate:-7deg"><img class="s" src="../shots/home-wave.png" alt=""></div>
+ <div class="phone" style="width:290px;right:40px;top:150px;rotate:6deg"><img class="s" src="../shots/player.png" alt=""></div>
+</section>
+
+<!-- 2. Square, 1080x1080: Моя волна -->
+<section class="b" id="square-wave" style="width:1080px;height:1080px">
+ <div style="position:absolute;left:0;right:0;top:86px;text-align:center">
+  <div class="logo" style="font-size:30px;justify-content:center"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h1 style="font-size:84px;margin-top:34px"><span class="grad">Моя волна</span></h1>
+  <p style="font-size:30px;font-weight:700;color:var(--mute);margin-top:22px">Бесконечный поток музыки под твой вкус</p>
+ </div>
+ <div class="phone" style="width:380px;left:350px;top:390px"><img class="s" src="../shots/home-wave.png" alt=""></div>
+ <div class="pill cta" style="position:absolute;left:84px;bottom:110px;font-size:26px;rotate:-4deg">Нажми ▶ и слушай</div>
+ <div class="pill ghost url" style="position:absolute;right:84px;bottom:160px;font-size:24px;rotate:3deg">music.academmix.ru</div>
+</section>
+
+<!-- 3. Story, 1080x1920 -->
+<section class="b" id="story" style="width:1080px;height:1920px">
+ <img class="burst-bg" src="../../iphone/public/art/logo-burst.png" style="width:1300px;left:-110px;top:420px;opacity:.13" alt="">
+ <div style="position:absolute;left:90px;right:90px;top:170px">
+  <div class="logo" style="font-size:40px"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h1 style="font-size:104px;margin-top:60px">Твоя музыка.<br><span class="grad">Твой ритм.</span></h1>
+  <p style="font-size:38px;font-weight:700;color:var(--mute);margin-top:34px;line-height:1.3">Волна, тексты, эквалайзер и офлайн — прямо в браузере</p>
+ </div>
+ <div class="phone" style="width:410px;left:110px;top:780px;rotate:-6deg"><img class="s" src="../shots/player.png" alt=""></div>
+ <div class="phone" style="width:350px;right:90px;top:860px;rotate:7deg"><img class="s" src="../shots/lyrics.png" alt=""></div>
+ <div style="position:absolute;left:0;right:0;bottom:0;padding:260px 90px 130px;text-align:center;background:linear-gradient(transparent,#0b0a10 45%)">
+  <div class="pill cta" style="font-size:42px;padding:.6em 1.3em">Открыть Sway</div>
+  <div class="url" style="font-size:36px;margin-top:30px;color:#fff">music.academmix.ru</div>
+ </div>
+</section>
+
+<!-- 4–6. Feature cards, 1080x1350 (Telegram album-friendly 4:5) -->
+<section class="b" id="feature-lyrics" style="width:1080px;height:1350px">
+ <div style="position:absolute;left:90px;right:90px;top:100px">
+  <div class="logo" style="font-size:28px"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h2 style="font-size:82px;margin-top:44px">Пой <span class="grad">вместе</span><br>с треком</h2>
+  <p style="font-size:32px;font-weight:700;color:var(--mute);margin-top:26px;line-height:1.3">Текст бежит строчка за строчкой в такт музыке</p>
+ </div>
+ <div class="phone" style="width:420px;left:330px;top:560px"><img class="s" src="../shots/lyrics.png" alt=""></div>
+</section>
+
+<section class="b" id="feature-sound" style="width:1080px;height:1350px">
+ <div style="position:absolute;left:90px;right:90px;top:100px">
+  <div class="logo" style="font-size:28px"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h2 style="font-size:82px;margin-top:44px">Звук <span class="grad">под себя</span></h2>
+  <ul class="feat" style="font-size:32px;margin-top:34px">
+   <li>Эквалайзер с пресетами</li>
+   <li>Плавные переходы между треками</li>
+   <li>Таймер сна с мягким затуханием</li>
+  </ul>
+ </div>
+ <div class="phone" style="width:400px;left:340px;top:640px"><img class="s" src="../shots/equalizer-edge.png" alt=""></div>
+</section>
+
+<section class="b" id="feature-collection" style="width:1080px;height:1350px">
+ <div style="position:absolute;left:90px;right:90px;top:100px">
+  <div class="logo" style="font-size:28px"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h2 style="font-size:82px;margin-top:44px">Всё любимое —<br><span class="grad">в одном месте</span></h2>
+  <p style="font-size:32px;font-weight:700;color:var(--mute);margin-top:26px;line-height:1.3">Лайкай треки, собирай плейлисты, слушай без интернета</p>
+ </div>
+ <div class="phone" style="width:400px;left:120px;top:640px;rotate:-5deg"><img class="s" src="../shots/collection.png" alt=""></div>
+ <div class="phone" style="width:400px;right:110px;top:700px;rotate:5deg"><img class="s" src="../shots/chart.png" alt=""></div>
+</section>
+
+<!-- 7. How to install on iPhone, 1080x1350 -->
+<section class="b" id="install-iphone" style="width:1080px;height:1350px">
+ <div style="position:absolute;left:90px;right:90px;top:100px">
+  <div class="logo" style="font-size:28px"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h2 style="font-size:76px;margin-top:44px">Sway на iPhone<br><span class="grad">за 10 секунд</span></h2>
+  <p style="font-size:30px;font-weight:700;color:var(--mute);margin-top:24px">Без App Store — как обычное приложение</p>
+ </div>
+ <ol style="position:absolute;left:90px;right:90px;top:520px;display:flex;flex-direction:column;gap:30px;list-style:none">
+  <li class="step"><b>1</b><div><strong>Открой в Safari</strong><span class="url">music.academmix.ru</span></div></li>
+  <li class="step"><b>2</b><div><strong>Нажми «Поделиться»</strong><span>квадрат со стрелкой внизу экрана</span></div></li>
+  <li class="step"><b>3</b><div><strong>«На экран „Домой“»</strong><span>иконка Sway появится рядом с приложениями</span></div></li>
+ </ol>
+ <div style="position:absolute;left:90px;bottom:96px;display:flex;align-items:center;gap:26px">
+  <img src="../../iphone/public/art/icon-512.png" style="width:120px;height:120px;border-radius:28px;background:#000;box-shadow:0 0 0 2px #ffffff1f,0 20px 50px #000a" alt="">
+  <div style="font-size:30px;font-weight:800">Готово — слушай<br><span style="color:var(--mute);font-weight:700">в полноэкранном режиме</span></div>
+ </div>
+ <style>
+  .step{display:flex;gap:30px;align-items:center;padding:30px 34px;border-radius:34px;background:#ffffff0d;border:1px solid #ffffff1c}
+  .step b{flex:none;display:grid;place-items:center;width:84px;height:84px;border-radius:50%;background:var(--burst);color:#111;font-family:Unbounded,sans-serif;font-size:40px}
+  .step div{display:flex;flex-direction:column;gap:8px}.step strong{font-size:38px}.step span{font-size:28px;color:var(--mute);font-weight:700}
+ </style>
+</section>
+
+<!-- 9. Background for the screen-recording video, 1080x1920 (the phone recording is laid over the middle) -->
+<section class="b" id="video-bg" style="width:1080px;height:1920px">
+ <img class="burst-bg" src="../../iphone/public/art/logo-burst.png" style="width:1300px;left:-110px;top:360px;opacity:.12" alt="">
+ <div style="position:absolute;left:0;right:0;top:70px;text-align:center">
+  <div class="logo" style="font-size:40px;justify-content:center"><img src="../../iphone/public/art/icon-512.png" alt="">Sway</div>
+  <h1 style="font-size:58px;margin-top:22px">Нажми ▶ — <span class="grad">и слушай</span></h1>
+ </div>
+ <div style="position:absolute;left:0;right:0;bottom:70px;text-align:center">
+  <div class="pill cta" style="font-size:40px;padding:.5em 1.2em">music.academmix.ru</div>
+ </div>
+</section>
+
+<!-- 8. Channel avatar, 640x640 -->
+<section class="b" id="avatar" style="width:640px;height:640px;background:#000">
+ <img src="../../iphone/public/art/logo-burst.png" style="position:absolute;inset:40px;width:560px;height:560px" alt="">
+</section>
+
+</body>
+</html>

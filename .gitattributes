@@ -1,0 +1,7 @@
+# Served assets carry exact byte sizes (X-Sway-Size, CSP hashes); keep them LF on every checkout.
+iphone/public/*.js text eol=lf
+iphone/public/*.css text eol=lf
+iphone/public/*.html text eol=lf
+iphone/public/*.json text eol=lf
+iphone/public/*.webmanifest text eol=lf
+iphone/public/_headers text eol=lf

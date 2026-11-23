@@ -8,7 +8,7 @@ const executable=process.platform==='win32'?'curl.exe':'curl';
 const curl=async (args,fail=true)=>{
  for(let attempt=1;attempt<=3;attempt++){
   try{
-   return (await exec(executable,[fail?'-fsS':'-sS','--connect-timeout','10','--max-time','25',...args],{encoding:'buffer',maxBuffer:1024*1024})).stdout;
+   return (await exec(executable,[fail?'-fsS':'-sS','--connect-timeout','10','--max-time','25',...args],{encoding:'buffer',maxBuffer:32*1024*1024})).stdout;
   }catch(e){
    if(attempt===3) throw e;
    await new Promise(r=>setTimeout(r,500));

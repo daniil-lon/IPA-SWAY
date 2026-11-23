@@ -28,7 +28,8 @@ export async function communitySignals(db,tracks){
  for(const r of artists.results||[])artistStats[r.artist]={plays:r.plays,listeners:r.listeners};
  for(const r of reactions.results||[])collections[r.kind+':'+r.ref]=r.likes;
  const data={tracks:trackStats,artists:artistStats,collections,listenerDays:30,playDefinition:'qualified_listener_track_day'};
- cached={db,data,until:Date.now()+45000};return response(data);
+ // Popularity scans chart_listens twice and likes once; ten minutes is fresh enough and keeps D1 reads flat.
+ cached={db,data,until:Date.now()+600000};return response(data);
 }
 export async function collectionReaction(req,db,user,tracks){
  if(!user)return response({error:'login_required'},401);
