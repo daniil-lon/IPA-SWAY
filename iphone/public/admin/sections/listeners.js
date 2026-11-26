@@ -68,6 +68,14 @@ export async function render(root) {
       <div class="card-title"><span>Слушатели по дням</span><span class="sub"><span style="color:#22c55e">■</span> новые · <span style="color:#a855f7">■</span> все · 30 дней</span></div>
       <div class="chart-box" data-chart><div class="skeleton" style="height:200px"></div></div>
     </div>
+    <div class="card">
+      <div class="card-title"><span>Что слушают</span><span class="sub">трек засчитывается после 30 секунд, один раз в день от слушателя · из этого строится «Чарт Sway»</span></div>
+      <div class="stat-grid" data-plays-stats></div>
+      <div class="split" style="margin-top:12px">
+        <div><div class="form-label" style="margin-bottom:8px">Топ треков · 30 дней</div><div class="table-wrap"><table class="data"><thead><tr><th>#</th><th>Трек</th><th class="num">Прослуш.</th><th class="num">Людей</th></tr></thead><tbody data-plays-tracks></tbody></table></div></div>
+        <div><div class="form-label" style="margin-bottom:8px">Топ артистов · 30 дней</div><div data-plays-artists></div><div class="form-label" style="margin:14px 0 8px">Прослушивания по дням</div><div data-plays-daily></div></div>
+      </div>
+    </div>
     <div class="split">
       <div class="card"><div class="card-title"><span>Откуда пришли</span><span class="sub">метки ?src= · 30 дней</span></div><div data-sources></div></div>
       <div class="card"><div class="card-title"><span>Устройства</span><span class="sub">30 дней</span></div><div data-devices></div></div>
@@ -106,8 +114,24 @@ export async function render(root) {
       if (!quiet) errorToast(error);
     }
   }
-  root.querySelector('[data-refresh]').addEventListener('click', async () => { await load(); toast('Обновлено'); });
-  await load();
-  timer = setInterval(() => { if (!document.hidden) load(true); }, 30000);
+  async function loadPlays() {
+    try {
+      const data = await api('/api/admin/plays');
+      if (!alive) return;
+      const t = data.totals || {};
+      root.querySelector('[data-plays-stats]').innerHTML = `
+        <div class="stat-card"><div class="stat-label">Прослушиваний сегодня</div><div class="stat-val">${fmtNum(t.today)}</div></div>
+        <div class="stat-card"><div class="stat-label">За 7 дней</div><div class="stat-val">${fmtNum(t.week)}</div></div>
+        <div class="stat-card"><div class="stat-label">За 30 дней</div><div class="stat-val">${fmtNum(t.month)}</div></div>`;
+      root.querySelector('[data-plays-tracks]').innerHTML = (data.tracks || []).map((row, index) => `
+        <tr><td class="dim">${index + 1}</td><td>${trackCell(row)}</td><td class="num">${fmtNum(row.plays)}</td><td class="num">${fmtNum(row.people)}</td></tr>`).join('')
+        || '<tr><td colspan="4"><div class="empty" style="padding:18px">Пока нет прослушиваний. Чарт Sway временно собран из редакционного списка.</div></td></tr>';
+      root.querySelector('[data-plays-artists]').innerHTML = shares((data.artists || []).map(row => ({ name: row.name, people: row.plays })));
+      root.querySelector('[data-plays-daily]').innerHTML = shares((data.daily || []).slice(-14).reverse().map(row => ({ name: fmtDay(row.day), people: row.plays })));
+    } catch (error) { /* the listeners report above already surfaces errors */ }
+  }
+  root.querySelector('[data-refresh]').addEventListener('click', async () => { await Promise.all([load(), loadPlays()]); toast('Обновлено'); });
+  await Promise.all([load(), loadPlays()]);
+  timer = setInterval(() => { if (!document.hidden) { load(true); loadPlays(); } }, 30000);
   return () => { alive = false; clearInterval(timer); };
 }

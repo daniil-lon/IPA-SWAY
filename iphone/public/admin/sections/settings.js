@@ -4,10 +4,12 @@ export const title = 'Настройки';
 export const crumb = 'Sway Music · Система';
 
 const FLAG_INFO = {
-  maintenance: { label: 'Режим обслуживания', hint: 'Публичный сайт отвечает страницей «Sway обновляется».' },
-  uploads: { label: 'Загрузка аудио', hint: 'Разрешает администраторам загружать треки.' },
-  signups: { label: 'Регистрация', hint: 'Резервный флаг для управления новыми аккаунтами.' }
+  maintenance: { label: 'Режим обслуживания', hint: 'Управляется карточкой выше: плашка «Идёт обновление», играют только скачанные треки.' },
+  uploads: { label: 'Загрузка аудио', hint: 'Где: раздел «Загрузки» этой админки. Выключите, чтобы временно запретить добавлять свои треки. Слушатели разницы не видят.' },
+  signups: { label: 'Регистрация', hint: 'Резервный переключатель: сейчас ни на что не влияет, вход через Яндекс выключен.' }
 };
+const HIDDEN_FLAGS = ['maintenance_message', 'maintenance_until'];
+const MAINT_DEFAULT = 'Скоро всё заработает. Пока можно слушать скачанные треки.';
 
 const AUDIT_LABELS = {
   'admin.password': 'Смена пароля',
@@ -51,7 +53,7 @@ export async function render(root) {
     <div class="tabs">
       <button class="tab active" type="button" data-tab="security">Безопасность</button>
       <button class="tab" type="button" data-tab="system">Система</button>
-      <button class="tab" type="button" data-tab="flags">Флаги</button>
+      <button class="tab" type="button" data-tab="flags">Режимы сайта</button>
       <button class="tab" type="button" data-tab="audit">Аудит</button>
       <button class="tab" type="button" data-tab="telegram">Telegram</button>
     </div>
@@ -108,6 +110,33 @@ export async function render(root) {
     </section>
 
     <section data-panel="flags" hidden>
+      <div class="card" data-maint>
+        <div class="card-title"><span>Режим обслуживания</span><span class="badge" data-maint-state>…</span></div>
+        <p class="lead">Включайте на время обновления сайта или работ с каталогом. Изменения доходят до слушателей за 15–30 секунд.</p>
+        <div class="split">
+          <div>
+            <div class="form-label" style="margin-bottom:6px">Что увидят слушатели</div>
+            <ul class="lead" style="margin:0 0 12px;padding-left:18px;line-height:1.7">
+              <li>Сайт открывается, <b>скачанные треки играют</b> как обычно</li>
+              <li>Сверху плашка «Идёт обновление сайта» с вашим текстом и временем</li>
+              <li>Каталог, поиск, стриминг, чарты и лайки временно на паузе</li>
+              <li>Приложение само проверяет каждые 30 секунд и возвращается, как только вы выключите режим</li>
+              <li>Эта админка продолжает работать</li>
+            </ul>
+          </div>
+          <form data-maint-form>
+            <div class="form-group"><label class="form-label">Текст на плашке</label><textarea class="form-input" name="message" maxlength="200" rows="3" placeholder="${MAINT_DEFAULT}"></textarea></div>
+            <div class="form-group" style="margin-top:10px"><label class="form-label">Примерно до (необязательно)</label><input class="form-input" type="datetime-local" name="until"></div>
+            <div class="form-label" style="margin:12px 0 6px">Предпросмотр</div>
+            <div data-maint-preview style="display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,#3b2f12,#2a2410);border:1px solid #f59e0b55;color:#fde68a"></div>
+            <div class="form-actions" style="flex-wrap:wrap;gap:8px">
+              <button class="btn primary" type="submit" data-maint-on>Включить обслуживание</button>
+              <button class="btn" type="button" data-maint-save>Сохранить текст</button>
+              <button class="btn danger" type="button" data-maint-off>Выключить</button>
+            </div>
+          </form>
+        </div>
+      </div>
       <div class="card">
         <div class="card-title"><span>Переключатели</span><span class="sub">применяются в течение 15 секунд</span></div>
         <div class="item-list" data-flags><div class="skeleton" style="height:80px"></div></div>
@@ -300,7 +329,8 @@ export async function render(root) {
       const data = await api('/api/admin/flags');
       const flags = data.flags || {};
       const known = Object.keys(FLAG_INFO);
-      const extra = Object.keys(flags).filter(key => !known.includes(key));
+      const extra = Object.keys(flags).filter(key => !known.includes(key) && !HIDDEN_FLAGS.includes(key));
+      fillMaintenance(flags);
       const switchRow = key => `
         <div class="list-item">
           <div class="item-info">
@@ -325,6 +355,54 @@ export async function render(root) {
       target.innerHTML = '<div class="empty">Флаги недоступны.</div>';
     }
   }
+
+  /* ---------- Maintenance ---------- */
+  const maintForm = root.querySelector('[data-maint-form]');
+  function untilLabel(value) {
+    const at = Date.parse(value || '');
+    return Number.isFinite(at) ? ' · Ориентировочно до ' + new Date(at).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+  }
+  function renderMaintPreview() {
+    const message = maintForm.message.value.trim() || MAINT_DEFAULT;
+    const until = maintForm.until.value ? new Date(maintForm.until.value).toISOString() : '';
+    root.querySelector('[data-maint-preview]').innerHTML = '<span style="font-size:20px">⚙</span><div><b style="display:block;color:#fff">Идёт обновление сайта</b><small>' + esc(message) + esc(untilLabel(until)) + '</small></div>';
+  }
+  function fillMaintenance(flags) {
+    const on = flags.maintenance === '1';
+    const badge = root.querySelector('[data-maint-state]');
+    badge.className = 'badge ' + (on ? 'yellow' : 'green');
+    badge.textContent = on ? 'включён — слушатели видят плашку' : 'выключен — сайт работает';
+    maintForm.message.value = flags.maintenance_message || '';
+    const at = Date.parse(flags.maintenance_until || '');
+    maintForm.until.value = Number.isFinite(at) ? new Date(at - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+    root.querySelector('[data-maint-on]').textContent = on ? 'Обновить и оставить включённым' : 'Включить обслуживание';
+    renderMaintPreview();
+  }
+  async function saveMaintenanceText() {
+    await api('/api/admin/flags', { method: 'POST', body: { key: 'maintenance_message', value: maintForm.message.value.trim().slice(0, 200) } });
+    await api('/api/admin/flags', { method: 'POST', body: { key: 'maintenance_until', value: maintForm.until.value ? new Date(maintForm.until.value).toISOString() : '' } });
+  }
+  maintForm.addEventListener('input', renderMaintPreview);
+  maintForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!(await confirmDialog({ title: 'Включить обслуживание?', message: 'Слушатели увидят плашку и смогут играть только скачанные треки.', confirmLabel: 'Включить' }))) return;
+    try {
+      await saveMaintenanceText();
+      await api('/api/admin/flags', { method: 'POST', body: { key: 'maintenance', value: '1' } });
+      toast('Режим обслуживания включён');
+      await loadFlags();
+    } catch (error) { errorToast(error); }
+  });
+  root.querySelector('[data-maint-save]').addEventListener('click', async () => {
+    try { await saveMaintenanceText(); toast('Текст плашки сохранён'); } catch (error) { errorToast(error); }
+  });
+  root.querySelector('[data-maint-off]').addEventListener('click', async () => {
+    try {
+      await api('/api/admin/flags', { method: 'POST', body: { key: 'maintenance', value: '0' } });
+      toast('Сайт снова работает');
+      await loadFlags();
+    } catch (error) { errorToast(error); }
+  });
 
   root.querySelector('[data-flags]').addEventListener('change', async event => {
     const toggle = event.target.closest('[data-flag-toggle]');

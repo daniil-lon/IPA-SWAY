@@ -2,7 +2,7 @@ import {offlineCache,offlineRoot} from './public/offline-storage.js';
 import {fetchAsset,isTransferAsset} from './public/asset-loader.js';
 import {fetchMedia} from './public/media-loader.js';
 
-const SHELL='sway-shell-v38';
+const SHELL='sway-shell-v39';
 // All public JS/CSS/JSON/art paths are already covered by isTransferAsset.
 const core=new Set(['/','/offline.html']);
 

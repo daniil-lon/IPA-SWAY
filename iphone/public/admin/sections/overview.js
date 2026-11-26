@@ -127,7 +127,7 @@ export async function render(root) {
     const online = system?.secrets?.CF_API_TOKEN && system?.secrets?.CF_ZONE_ID;
 
     body.innerHTML = `
-      ${system?.flags?.maintenance === '1' ? '<div class="card" style="border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.08)"><b style="color:#fcd34d">⚠ Режим обслуживания включён.</b> <span class="muted">Публичная часть сайта отвечает страницей обслуживания. Отключите флаг <code>maintenance</code> в настройках.</span></div>' : ''}
+      ${system?.flags?.maintenance === '1' ? '<div class="card" style="border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.08)"><b style="color:#fcd34d">⚠ Режим обслуживания включён.</b> <span class="muted">Слушатели видят плашку «Идёт обновление», играют только скачанные треки. Выключить: Настройки → Режимы сайта.</span></div>' : ''}
       <div class="stat-grid">
         ${statCard('Треков в каталоге', fmtNum(stats.totalTracks), fmtNum(stats.staticTracks) + ' базовых + ' + fmtNum(stats.customTracks) + ' загруженных')}
         ${statCard('Слушателей', fmtNum(stats.listeners), '+' + fmtNum(stats.newUsers7) + ' за 7 дней', 'accent')}

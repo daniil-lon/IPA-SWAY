@@ -1,0 +1,95 @@
+/* Back arrows: no outline or ring anywhere, focus stays visible for keyboards. */
+:is(a,button)[aria-label="Назад"],[data-taste-close]{border:0!important;box-shadow:none!important;outline:none}
+.sway-settings .settings-title .icon,body[data-settings-view=preferences] .settings-title .icon{background:transparent!important}
+:is(a,button)[aria-label="Назад"]:focus-visible,[data-taste-close]:focus-visible{outline:2px solid #ffffff80!important;outline-offset:2px;border-radius:50%}
+
+/* «Что послушать»: Sway chart card */
+.sway-chart-card{margin:16px 0 6px;padding:14px 14px 6px;border:1px solid #ffffff14;border-radius:22px;background:radial-gradient(120% 90% at 100% 0,#ff2a8522,transparent 55%),radial-gradient(90% 80% at 0 100%,#ffd54f14,transparent 60%),linear-gradient(160deg,#ffffff0c,#ffffff04)}
+.scc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.scc-head a{display:grid;gap:1px;min-width:0;color:inherit;text-decoration:none}
+.scc-head small{color:#b3b6c0;font-size:12px;font-weight:550}
+.scc-head strong{display:flex;align-items:center;gap:4px;font-size:21px;font-weight:780;letter-spacing:-.02em}
+.scc-head strong svg{width:18px;height:18px;opacity:.6}
+.scc-play{flex:none;width:44px;height:44px;border-radius:50%;background:#ffff38!important;color:#0b0d12!important}
+.scc-play svg{width:20px;height:20px}
+.scc-list{list-style:none;margin:0;padding:0}
+.scc-list button{display:grid;grid-template-columns:20px 44px minmax(0,1fr) auto;align-items:center;gap:11px;width:100%;padding:7px 2px;border:0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;border-radius:12px}
+.scc-list button:active{background:#ffffff0d}
+.scc-list b{font-size:15px;font-weight:760;color:#e8e9ee;text-align:center}
+.scc-list li:first-child b{color:#ffd54f}
+.scc-list img{width:44px;height:44px;border-radius:9px;object-fit:cover}
+.scc-list span{display:grid;min-width:0}
+.scc-list strong,.scc-list small{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.scc-list strong{font-size:14.5px;font-weight:620}
+.scc-list small{color:#a9adb8;font-size:12.5px}
+.scc-list button.active strong,.scc-list [data-row].active strong{color:#ffff38}
+.scc-list em{font-style:normal;font-size:10px;font-weight:800}
+.scc-up{color:#22c55e}.scc-down{color:#ef4444}
+.scc-new{padding:2px 5px;border-radius:6px;background:#ffff3822;color:#ffff38}
+.scc-more{display:flex;align-items:center;justify-content:center;gap:4px;margin:4px -14px 0;padding:11px;border-top:1px solid #ffffff0f;color:#c9ccd5;font-size:13.5px;font-weight:600;text-decoration:none}
+.scc-more svg{width:15px;height:15px;opacity:.6}
+.shelf-now .shelf-title{display:flex;align-items:center;gap:8px}
+.shelf-now .shelf-title small{color:#a9adb8;font-size:13px;font-weight:550}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 #22c55e88;animation:swayLiveDot 1.8s ease-out infinite}
+@keyframes swayLiveDot{70%{box-shadow:0 0 0 7px #22c55e00}100%{box-shadow:0 0 0 0 #22c55e00}}
+.chart-shift.new{font-size:8px;font-weight:800;color:#ffff38}
+@media(prefers-reduced-motion:reduce){.live-dot{animation:none}}
+
+/* Profile: personal monthly top */
+.my-top{margin:14px 0;padding:14px;border:1px solid #ffffff12;border-radius:20px;background:linear-gradient(160deg,#ffffff0b,#ffffff03)}
+.my-top header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}
+.my-top h2{margin:0;font-size:17px;font-weight:720}
+.my-top header small{color:#9ea3ae;font-size:12px}
+.my-top ol{list-style:none;margin:0;padding:0}
+.my-top button{display:grid;grid-template-columns:18px 40px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:6px 0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.my-top b{font-weight:760;text-align:center;color:#dfe1e7}
+.my-top img{width:40px;height:40px;border-radius:8px;object-fit:cover}
+.my-top span{display:grid;min-width:0}
+.my-top strong,.my-top small{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.my-top strong{font-size:14px;font-weight:600}.my-top span small{color:#a9adb8;font-size:12px}
+.my-top em{font-style:normal;color:#9ea3ae;font-size:12.5px;font-weight:650}
+
+/* «Скачанное» */
+.offline-hero{position:relative;overflow:hidden}
+.offline-hero-top{display:flex;align-items:center;gap:14px}
+.offline-disc{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,#4fd1c5,#3b82f6 60%,#7c3aed);box-shadow:0 10px 26px #3b82f633,inset 0 1px #ffffff40;color:#fff}
+.offline-disc svg{width:26px;height:26px}
+.offline-hero h1{margin:0 0 3px!important}
+.offline-meter{margin-top:14px}
+.offline-meter span{display:block;height:6px;border-radius:6px;background:#ffffff14;overflow:hidden}
+.offline-meter i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#4fd1c5,#3b82f6);transition:width .6s ease}
+.offline-meter small{display:block;margin-top:6px;color:#9ea3ae;font-size:12px}
+.offline-actions .btn{display:inline-flex;align-items:center;gap:6px}
+.offline-actions .btn svg{width:17px;height:17px}
+.offline-readiness:empty{display:none}
+.offline-tools{display:grid;gap:10px;margin:6px 0 4px}
+.offline-search{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 13px;border:1px solid #ffffff17;border-radius:15px;background:#ffffff08;color:#aeb3bd}
+.offline-search svg{width:18px;height:18px}
+.offline-search input{flex:1;min-width:0;border:0;background:none;color:#fff;font:inherit;font-size:15px;outline:none}
+.offline-sort{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}
+.offline-sort::-webkit-scrollbar{display:none}
+.offline-hint{margin:2px 0 6px;color:#7f8590;font-size:12px}
+.offline-list .offline-row{position:relative;transition:transform .22s ease,opacity .22s ease;touch-action:pan-y}
+.offline-list .offline-row[data-swiping]{transition:none}
+.offline-list .offline-row[data-swiping=remove]{background:linear-gradient(90deg,transparent 60%,#ef444430)}
+.offline-list .row-time{color:#8d929c;font-size:12px;margin-right:2px}
+.offline-row[hidden]{display:none!important}
+.offline-empty{display:grid;justify-items:center;gap:8px;margin:28px auto;max-width:330px;text-align:center}
+.offline-empty-art{display:grid;place-items:center;width:84px;height:84px;border-radius:26px;background:linear-gradient(145deg,#4fd1c522,#7c3aed22);border:1px solid #ffffff14;color:#9fd8ff}
+.offline-empty-art svg{width:36px;height:36px}
+.offline-empty h2{margin:6px 0 0;font-size:20px}
+.offline-empty p{margin:0 0 6px;color:#a9adb8;font-size:14px;line-height:1.5}
+.offline-empty p i{display:inline-flex;vertical-align:-3px}.offline-empty p svg{width:16px;height:16px}
+
+/* Maintenance banner */
+.maintenance-banner{position:fixed;z-index:2147483000;isolation:isolate;top:calc(8px + env(safe-area-inset-top));left:50%;translate:-50% 0;display:flex;align-items:center;gap:11px;width:min(560px,calc(100% - 24px));box-sizing:border-box;padding:10px 8px 10px 13px;border:1px solid #f59e0b55;border-radius:18px;background:linear-gradient(135deg,#3b2f12f2,#231d0cf2);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 12px 30px #0007;color:#fde68a;animation:swayBannerIn .45s cubic-bezier(.2,.8,.2,1)}
+.maintenance-banner .mb-icon{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#f59e0b2a}
+.maintenance-banner .mb-icon svg{width:19px;height:19px;animation:swayGear 6s linear infinite}
+.maintenance-banner div{display:grid;flex:1;min-width:0;gap:1px}
+.maintenance-banner strong{color:#fff;font-size:14px}
+.maintenance-banner small{font-size:12.5px;line-height:1.35}
+.maintenance-banner .icon{flex:none;width:38px;height:38px;color:#fde68a}
+body[data-maintenance] #main{padding-top:68px}
+@keyframes swayBannerIn{from{opacity:0;translate:-50% -14px}}
+@keyframes swayGear{to{rotate:360deg}}
+@media(prefers-reduced-motion:reduce){.maintenance-banner,.maintenance-banner .mb-icon svg{animation:none}}

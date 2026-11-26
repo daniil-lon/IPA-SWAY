@@ -118,7 +118,7 @@ try{
    await p.goto(origin+'/#discover');
    await p.getByRole('heading',{name:'Что послушать',exact:true}).waitFor();
    await near('.catalog-icons',{y:71,width:393});
-   await near('.shelf-shortcuts',{y:200,height:59});
+   await p.locator('#discover-chart .scc-list li').first().waitFor();
    await p.screenshot({path:'artifacts/mobile-discover.png'});
    assert.equal(await p.locator('.mobile-nav a[data-nav="discover"]').getAttribute('aria-current'),'page');
    await p.getByRole('button',{name:'по настроению',exact:true}).click();

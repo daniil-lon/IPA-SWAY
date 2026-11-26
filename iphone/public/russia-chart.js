@@ -30,10 +30,13 @@ export function createRussiaChart({html,icon,getTracks,isOffline,onChange,onPlay
   document.querySelector('[data-ru-preview="'+CSS.escape(id)+'"]')?.remove();
  });
 
+ let failedAt=0;const RETRY_MS=60000;
  function load(force=false){
   const saved=read();
   if(job||isOffline())return;
   if(!force&&saved&&Date.now()-saved.at<FRESH){items=saved.items;return;}
+  // A failed load re-renders the page; retrying at once from that render looped forever on bad networks.
+  if(!force&&failedAt&&Date.now()-failedAt<RETRY_MS)return;
   // Small pages: long responses from our host get cut on some Russian networks.
   job=(async()=>{
    const list=[];
@@ -44,7 +47,7 @@ export function createRussiaChart({html,icon,getTracks,isOffline,onChange,onPlay
    }
    if(!list.length)throw new Error();
    items=list;failed=false;matches=null;write({at:Date.now(),items});
-  })().catch(()=>{failed=!items||!(saved&&Date.now()-saved.at<STALE);})
+  })().then(()=>{failedAt=0;}).catch(()=>{failedAt=Date.now();failed=!items||!(saved&&Date.now()-saved.at<STALE);})
    .finally(()=>{job=null;onChange();});
  }
 

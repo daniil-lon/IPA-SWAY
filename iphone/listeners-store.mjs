@@ -1,5 +1,6 @@
 // Who is actually listening, guests included. The player pings about every two minutes while music plays;
 // the gap between two pings becomes listening time. A visitor is a random browser id, nothing personal.
+import {recordPlay} from './plays-store.mjs';
 const PING_MIN=50, PING_MAX=200, NOW_WINDOW=300;
 let window_=0, count=0;
 
@@ -18,6 +19,8 @@ export async function recordListen(req,env,identity){
  const source=typeof body.source==='string'&&/^[a-z0-9_-]{1,32}$/.test(body.source)?body.source:'';
  const device=deviceOf(req.headers.get('User-Agent')||'',body.app===true);
  const stamp=Math.floor(Date.now()/1000), day=new Date().toISOString().slice(0,10);
+ // A separate beacon marks a play that reached 30 seconds; it only feeds the public chart.
+ if(body.play===true){if(track)await recordPlay(env,visitor,track);return new Response(null,{status:204});}
  const uid=(await identity().catch(()=>null))?.id||null;
  // Credit the gap since the previous ping only when it looks like continuous playback.
  const gap='COALESCE((SELECT CASE WHEN ?1-last_seen BETWEEN '+PING_MIN+' AND '+PING_MAX+' THEN ?1-last_seen ELSE 0 END FROM listeners WHERE visitor=?2),0)';

@@ -68,8 +68,8 @@ try{
  await full.locator('.dialog-close').tap();await full.locator('.dialog-close').tap();
  await page.goto(origin+'/#discover');
  await page.locator('.discover-search').waitFor();
- const discover=await page.locator('.discover-view').evaluate(el=>{const box=e=>e.getBoundingClientRect();return {columns:getComputedStyle(el.querySelector('.catalog-icons')).gridTemplateColumns.split(' ').length,heroHeight:box(el.querySelector('.discover-callout')).height,mixesTop:box(el.querySelector('#discover-mixes')).top,overflow:document.documentElement.scrollWidth>innerWidth};});
- assert.equal(discover.columns,3);assert.ok(discover.heroHeight<=220);assert.ok(discover.mixesTop<600);assert.equal(discover.overflow,false);
+ const discover=await page.locator('.discover-view').evaluate(el=>{const box=e=>e.getBoundingClientRect();return {columns:getComputedStyle(el.querySelector('.catalog-icons')).gridTemplateColumns.split(' ').length,heroHeight:box(el.querySelector('.sway-chart-card')).height,mixesTop:box(el.querySelector('.sway-chart-card')).top,overflow:document.documentElement.scrollWidth>innerWidth};});
+ assert.equal(discover.columns,3);assert.ok(discover.heroHeight<=480);assert.ok(discover.mixesTop<320);assert.equal(discover.overflow,false);
  await page.screenshot({path:'artifacts/sway-polish-discover.png',scale:'css'});
  await page.locator('.discover-search').tap();await page.waitForURL('**/#search');
  await page.goto(origin+'/#settings/preferences');

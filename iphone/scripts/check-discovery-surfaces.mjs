@@ -14,7 +14,7 @@ try{
     await page.route('**/catalog.json',r=>r.fulfill({json:tracks}));
     await page.goto(origin+'/#discover');await page.locator('.shelf-artists a').first().waitFor();
     await page.waitForFunction(()=>!document.querySelector('#main').getAnimations().some(a=>a.playState==='running'));
-    const layout=await page.locator('.discover-view').evaluate(el=>({width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,categories:[...el.querySelectorAll('.catalog-icons a')].map(e=>({width:e.clientWidth,height:e.clientHeight,href:e.getAttribute('href')})),heroHeight:el.querySelector('.discover-callout').clientHeight,mixesTop:el.querySelector('#discover-mixes').getBoundingClientRect().top}));
+    const layout=await page.locator('.discover-view').evaluate(el=>({width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,categories:[...el.querySelectorAll('.catalog-icons a')].map(e=>({width:e.clientWidth,height:e.clientHeight,href:e.getAttribute('href')})),heroHeight:el.querySelector('.sway-chart-card').clientHeight,mixesTop:el.querySelector('#discover-mixes').getBoundingClientRect().top}));
     assert.equal(layout.overflow,false,JSON.stringify(layout));assert.equal(layout.categories.length,3);assert.ok(layout.categories.every(c=>c.height>=44));
     await page.screenshot({path:'artifacts/sway-discover-'+engine+'-'+width+'.png',scale:'css',fullPage:true});
     const started=Date.now();await page.locator('.discover-search').click();await page.waitForURL('**/#search');

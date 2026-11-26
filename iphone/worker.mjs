@@ -28,23 +28,28 @@ import {playlistRoute} from './playlist-store.mjs';
 import {folderRoute} from './folder-store.mjs';
 import {experienceRoute} from './experience-store.mjs';
 import {listenersReport,recordListen} from './listeners-store.mjs';
+import {playStats,playsReport} from './plays-store.mjs';
 import {importPlaylist} from './playlist-import.mjs';
 // The catalog is a 5 MB static asset. Loading it through the assets binding keeps
 // it out of the Worker bundle and lets every isolate parse it at most once.
 let catalogCache = null, catalogIndexCache = null, catalogViewCache = null, catalogLastGood = null;
-let maintenanceCache = { at: 0, value: false };
-const MAINTENANCE_HTML = '<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sway — обслуживание</title><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#100e17;color:#f3f0f7;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:24px"><div><h1 style="font-size:28px;margin:0 0 12px">Sway обновляется</h1><p style="color:#9c95ab;margin:0">Мы вернёмся через несколько минут. Спасибо за терпение.</p></div></body></html>';
+let maintenanceCache = { at: 0, value: false, message: '', until: '' };
+// Maintenance keeps the app shell and its downloaded music working; only live APIs pause.
 async function maintenanceMode(env) {
  if (!env.DB) return false;
  if (Date.now() - maintenanceCache.at < 15000) return maintenanceCache.value;
  try {
-  const row = await env.DB.prepare("SELECT value FROM feature_flags WHERE key='maintenance'").first();
-  maintenanceCache = { at: Date.now(), value: row?.value === '1' };
+  const { results = [] } = await env.DB.prepare("SELECT key, value FROM feature_flags WHERE key IN ('maintenance','maintenance_message','maintenance_until')").all();
+  const get = key => results.find(row => row.key === key)?.value || '';
+  maintenanceCache = { at: Date.now(), value: get('maintenance') === '1', message: get('maintenance_message').slice(0, 200), until: get('maintenance_until').slice(0, 40) };
  } catch {
-  maintenanceCache = { at: Date.now(), value: false };
+  maintenanceCache = { at: Date.now(), value: false, message: '', until: '' };
  }
  return maintenanceCache.value;
 }
+const maintenanceInfo = () => ({ maintenance: maintenanceCache.value, message: maintenanceCache.message, until: maintenanceCache.until });
+const MAINTENANCE_OPEN = new Set(['/api/health', '/api/status', '/api/asset-part', '/api/asset-socket', '/api/visit']);
+const MAINTENANCE_HTML = '<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sway — обслуживание</title><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#100e17;color:#f3f0f7;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:24px"><div><h1 style="font-size:28px;margin:0 0 12px">Sway обновляется</h1><p style="color:#9c95ab;margin:0">Мы вернёмся через несколько минут. Спасибо за терпение.</p></div></body></html>';
 async function catalogView(env,req){
  if(!catalogViewCache||Date.now()-catalogViewCache.at>catalogViewCache.ttl){
   // Each rebuild reads custom_tracks, catalog_overrides and ~7000 track_languages rows. At a 10 s
@@ -242,10 +247,12 @@ export default {async fetch(req,env,ctx){
  const url=new URL(req.url), path=url.pathname, method=req.method;
  try{
   if(path==='/sw.js')return await startupWorker(req,env);
-  if(path!=='/api/health'&&!path.startsWith('/api/admin/')&&await maintenanceMode(env)){
-   if(path.startsWith('/api/'))return json({error:'maintenance'},503);
-   return new Response(MAINTENANCE_HTML,{status:503,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Retry-After':'300'}});
+  if(path==='/api/status')return new Response(JSON.stringify({...(await maintenanceMode(env),maintenanceInfo())}),{headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
+  if(path.startsWith('/api/')&&!MAINTENANCE_OPEN.has(path)&&!path.startsWith('/api/admin/')&&await maintenanceMode(env)){
+   return new Response(JSON.stringify({error:'maintenance',...maintenanceInfo()}),{status:503,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Retry-After':'120'}});
   }
+  // Streaming pauses too; downloaded tracks play from the device.
+  if((path.startsWith('/media/')||path==='/catalog.json')&&await maintenanceMode(env))return new Response(MAINTENANCE_HTML,{status:503,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Retry-After':'120'}});
   if(path==='/api/asset-part')return assetPart(req,env);
   if(path==='/api/asset-socket')return assetSocket(req,env);
   if(path==='/api/media-part'||path==='/api/media-socket'){
@@ -292,6 +299,10 @@ export default {async fetch(req,env,ctx){
   if(path==='/api/admin/listeners'&&method==='GET'){
    if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
    return json(await listenersReport(env,await catalogTracks(env,req).catch(()=>[])));
+  }
+  if(path==='/api/admin/plays'&&method==='GET'){
+   if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
+   return json(await playsReport(env,await catalogTracks(env,req).catch(()=>[])));
   }
   if(path==='/api/admin/experience'||path.startsWith('/api/admin/experience/reports/')){
    if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
@@ -354,7 +365,10 @@ export default {async fetch(req,env,ctx){
   if(method!=='GET' && !(method==='HEAD'&&path==='/api/artwork') && (req.headers.get('Origin')!==url.origin || !req.headers.get('Content-Type')?.startsWith('application/json'))) return json({error:'origin'},403);
   if(path==='/api/performance'||path==='/api/track-reports')return experienceRoute(req,path,env.DB,{hasTrack:async id=>(await getTrackIds(env,req)).has(id)});
   if(path==='/api/chart' && method==='GET'){
-   return json({items:chartItems});
+   try{
+    const stats=await playStats(env,await catalogTracks(env,req));
+    return new Response(JSON.stringify(stats),{headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'public, max-age=120'}});
+   }catch{return json({items:chartItems});}
   }
   if(path==='/api/russia-chart' && method==='GET')return await russiaChart(url,ctx);
   if(path==='/api/catalog-signals'&&method==='GET'){

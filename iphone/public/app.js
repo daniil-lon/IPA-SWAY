@@ -147,7 +147,7 @@ let guest={volume:.8,autoplay:true,crossfade:true,motion:true,...load('prefs',{}
 const preferredGenres=new Set((Array.isArray(load('preferred-genres',[]))?load('preferred-genres',[]):[]).slice(0,5));
 const preferredArtists=new Set((Array.isArray(load('preferred-artists',[]))?load('preferred-artists',[]):[]).slice(0,150));
 let tasteLifetime=null,tasteWrites=Promise.resolve();
-let rankedChart=null, chartJob=null, chartError=false, chartTime=0, chartTimer;
+let liveStats=null, rankedChart=null, chartJob=null, chartError=false, chartTime=0, chartTimer;
 const offlineOnly=()=>offlineMode||manualOffline;
 let hapticsEnabled=load('haptics',true)!==false;
 const pulse=(kind,event,target)=>feedback(kind,{event,target,enabled:hapticsEnabled});
@@ -171,6 +171,30 @@ const playbackMetrics=createPlaybackMetrics(audioElements,()=>audio);
  };
  for(const element of audioElements)element.addEventListener('playing',()=>setTimeout(()=>ping(true),1500));
  setInterval(ping,30000);
+ // A track counts toward the public chart after 30 seconds of real listening, once per play.
+ let heardId='',heard=0,heardAt=0,counted=false;
+ for(const element of audioElements)element.addEventListener('timeupdate',()=>{
+  if(!current||!playing)return;
+  const now=performance.now();
+  if(current.id!==heardId){heardId=current.id;heard=0;counted=false;heardAt=now;return;}
+  heard+=Math.min(1.5,Math.max(0,(now-heardAt)/1000));heardAt=now;
+  if(counted||heard<30)return;
+  counted=true;myMonthPlays(current.id);
+  if(navigator.onLine===false)return;
+  if(visitor)try{navigator.sendBeacon?.('/api/listen',new Blob([JSON.stringify({visitor,track:current.id,play:true})],{type:'application/json'}));}catch{}
+ });
+}
+// "Твой топ месяца": counted plays (30+ seconds) for the current month, stored on this device only.
+function myMonthPlays(id){
+ const month=new Date().toISOString().slice(0,7);
+ let data={month,counts:{}};
+ try{const saved=JSON.parse(localStorage.getItem('sway.myplays')||'null');if(saved?.month===month&&saved.counts)data=saved;}catch{}
+ if(id){data.counts[id]=(data.counts[id]||0)+1;try{localStorage.setItem('sway.myplays',JSON.stringify(data));}catch{}}
+ return data.counts;
+}
+function myTopMonth(limit=5){
+ const counts=myMonthPlays();
+ return Object.entries(counts).filter(([id])=>map.has(id)).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([id,plays])=>({track:map.get(id),plays}));
 }
 const reportTrack=createTrackReporter({api,html,icon,metrics:playbackMetrics});
 const fullClose=dialog.querySelector('.dialog-close');
@@ -260,7 +284,7 @@ const art=t=>'<img src="'+html(t.art)+'" alt="">';
 const download=t=>canDownload(t)?button(offlineTracks.has(t.id)?'check':'download',offlineTracks.has(t.id)?'Удалить из скачанного: '+t.title:'Скачать в Sway: '+t.title,'data-offline-toggle="'+html(t.id)+'"'+(offlineJobs.has(t.id)||!offlineTracks.has(t.id)&&(offlineOnly()||navigator.onLine===false)?' disabled':''),'icon offline-toggle'+(offlineTracks.has(t.id)?' saved':'')):'';
 const row=(t,compact=false)=>'<article class="row" data-row="'+t.id+'"><button class="row-track" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'"><span class="row-art">'+art(t)+'</span><div><strong>'+html(t.title)+(t.isExplicit?' <span class="badge-e" aria-label="Explicit" title="Ненормативная лексика">E</span>':'')+'</strong><small>'+html(t.artist)+(t.provider?' <span class="source-tag">Commons</span>':'')+'</small></div></button><div class="row-actions"><small>'+time(t.seconds)+'</small>'+(compact?button('more','Действия с треком «'+t.title+'»','data-info-track="'+t.id+'"'):button('heart','Мне нравится','data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"')+playlists.quickButton(t,button)+button('plus','Добавить в очередь','data-add="'+t.id+'"'))+'</div></article>';
 const rows=(items,compact=false)=>items.length?'<div class="rows">'+items.map(t=>row(t,compact)).join('')+'</div>':'<div class="panel"><p class="quiet">Здесь пока нет треков.</p></div>';
-const russiaChart=createRussiaChart({html,icon,getTracks:()=>tracks,isOffline:()=>offlineOnly()||navigator.onLine===false,onChange:()=>{if(page==='discover'&&[undefined,'russia'].includes(location.hash.split('/')[1]))renderWhenIdle();},onPlay:id=>{const t=map.get(id);if(t)play(t,[t],'track');},onPreviewStart:()=>{if(playing)pausePlayback();}});
+const russiaChart=createRussiaChart({html,icon,getTracks:()=>tracks,isOffline:()=>offlineOnly()||navigator.onLine===false,onChange:()=>{if(page!=='discover')return;const section=location.hash.split('/')[1];const slot=!section&&$('#discover-russia');if(slot){if(!slot.contains(document.activeElement))slot.innerHTML=russiaChart.shelf();}else if(section==='russia')renderWhenIdle();},onPlay:id=>{const t=map.get(id);if(t)play(t,[t],'track');},onPreviewStart:()=>{if(playing)pausePlayback();}});
 for(const element of audioElements)element.addEventListener('play',()=>russiaChart.stop());
 const playlists=createPlaylists({api,icon,html,getTracks:()=>[...map.values()],getUser:()=>user,isOffline:()=>offlineOnly()||navigator.onLine===false,onChange:()=>{if(page==='library')render();},onPlay:(ids,name)=>{const items=tracksFrom(ids);if(items.length){play(items[0],items,'playlist');if(name)queueSource=name;}},rows,header:(title,href)=>shelfHeader(title,backLink(href)),notice,reactionButton});
 const card=t=>'<article class="track-card"><button class="card-art" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'">'+art(t)+icon('play')+'</button><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></article>';
@@ -525,8 +549,14 @@ function mobileProfile(){
  return navHeader('Профиль',backLink('#home'),user?button('logout','Выйти','data-action="logout"'):'')+
  '<div class="mx-profile sway-profile"><div id="profile-data">'+(user?(accountProfile?ownProfile():'<p class="loading">Загружаем профиль…</p>'):guestCard)+'</div>'+
  (!user&&loginConfigured?'<section class="profile-login"><span>Синхронизируй коллекцию</span><a class="mx-chip on" href="/auth/yandex">Войти</a></section>':'')+
+ myTopSection()+
  '<section class="mx-profile-list">'+option('#settings','Настройки')+'</section>'+
  (user?'<section class="sway-account-footer"><button class="profile-delete" type="button" data-action="delete">'+icon('logout')+'<strong>Удалить аккаунт</strong>'+icon('forward')+'</button></section>':'')+'</div>';
+}
+function myTopSection(){
+ const top=myTopMonth(5);if(!top.length)return '';
+ const month=new Date().toLocaleDateString('ru-RU',{month:'long'});
+ return '<section class="my-top"><header><h2>Твой топ месяца</h2><small>'+html(month)+' · на этом устройстве</small></header><ol>'+top.map(({track:t,plays},i)=>'<li><button type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'"><b>'+(i+1)+'</b>'+art(t)+'<span><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></span><em>'+plays+'×</em></button></li>').join('')+'</ol></section>';
 }
 const ownProfile=()=>profileCard(accountProfile,{icon,track:map.get(accountProfile.profileTrack),own:true});
 function syncProfileCover(root){
@@ -1092,6 +1122,7 @@ const browseIcon=name=>'<svg class="catalog-glyph" viewBox="0 0 64 64" aria-hidd
 const coverStack=(source,fallback)=>'<span class="shelf-stack" aria-hidden="true">'+(source.length>1?art(source[1]):'')+(source.length?art(source[0]):'<img src="'+fallback+'" alt="">')+'</span>';
 const shortcut=(href,label,note,source,fallback)=>'<a class="shelf-shortcut" href="'+href+'">'+coverStack(source,fallback)+'<span><strong>'+label+'</strong><small>'+html(note)+'</small></span></a>';
 const chartItems=()=>tracksFrom((rankedChart||[]).map(t=>t.id||t.trackId));
+const statItems=key=>tracksFrom((liveStats?.[key]||[]).map(t=>t.id));
 const chartShortcut=()=>'<div class="chart-glass" data-chart-color="'+chartHue()+'"><button class="chart-faves" type="button" data-action="play-chart-favorites"><span class="chart-visual"><img src="/art/chart.svg" alt=""></span><span><strong>Чарт Sway</strong><small>Слушать понравившееся</small></span>'+icon('play')+'</button><a class="chart-top" href="#discover/chart">Топ 100 '+icon('forward')+'</a></div>';
 function syncChartColor(){
  clearTimeout(chartTimer);
@@ -1101,11 +1132,13 @@ function syncChartColor(){
 }
 function catalogArtists(){
  const scores=new Map();
- for(const t of rankedChart||[]){
-  for(const name of artistCredits(map.get(t.id)?.artist)){
-   const key=artistIdentity(name);scores.set(key,(scores.get(key)||0)+t.plays+2*t.likes);
+ // Real plays first; chart positions break ties and fill in while statistics are young.
+ for(const a of liveStats?.artists||[]){const key=artistIdentity(a.name);scores.set(key,(scores.get(key)||0)+1000*(Number(a.plays)||0));}
+ (rankedChart||[]).forEach((t,i)=>{
+  for(const name of artistCredits(map.get(t.id||t.trackId)?.artist)){
+   const key=artistIdentity(name);scores.set(key,(scores.get(key)||0)+Math.max(1,100-i));
   }
- }
+ });
  const hot=scores.size>0;
  const groups=[...artistIndex.values()].filter(p=>!hot||scores.has(p.slug)).sort((a,b)=>(scores.get(b.slug)||0)-(scores.get(a.slug)||0)||b.items.length-a.items.length||a.name.localeCompare(b.name,'ru'));
  return {hot,groups};
@@ -1115,20 +1148,20 @@ function artistShelf(groups,expanded=false){
 }
 function loadChart(force=false){
  if(chartJob||(!force&&Date.now()-chartTime<60000))return;
- chartJob=fetch('/chart.json').then(r=>r.json()).then(data=>{
+ // Live chart from listening statistics; the bundled editorial chart is the offline fallback.
+ chartJob=fetch('/api/chart',{credentials:'same-origin'}).then(r=>{if(!r.ok)throw new Error('chart_'+r.status);return r.json();}).then(data=>{
+  if(!Array.isArray(data.items)||!data.items.length)throw new Error('chart_empty');
+  rankedChart=data.items;liveStats=data;chartError=false;
+ }).catch(()=>fetch('/chart.json').then(r=>r.json()).then(data=>{
   rankedChart=Array.isArray(data)?data:(Array.isArray(data.items)?data.items:[]);chartError=false;
- }).catch(()=>{
-  return api('/api/chart').then(data=>{
-   rankedChart=Array.isArray(data.items)?data.items:[];chartError=false;
-  });
- }).catch(()=>{chartError=true;}).finally(()=>{
+ })).catch(()=>{chartError=true;}).finally(()=>{
   chartJob=null;chartTime=Date.now();
   const section=location.hash.split('/')[1];
   if(page!=='discover')return;
   if(['chart','trends','artists'].includes(section))render();
   else if(!section&&$('#discovery-artists')){
    const active=document.activeElement;
-   if(!$('#discovery-artists').contains(active))$('#discovery-artists').innerHTML=discoverArtistShelf();
+   refreshDiscoverSlots();
   }
  });
 }
@@ -1143,16 +1176,16 @@ function chartEmpty(){
 function chartRow(t,info,index){
  const pos=info?.position||(index+1);
  const prog=info?.progress||'same';
- const shiftSym=pos===1?'👑':prog==='up'?'▲':prog==='down'?'▼':'—';
- const isExplicit=info?.explicit;
+ const shiftSym=pos===1&&prog!=='new'?'👑':prog==='up'?'▲'+(info.shift>1?info.shift:''):prog==='down'?'▼'+(info.shift<-1?-info.shift:''):prog==='new'?'NEW':'—';
+ const isExplicit=info?.explicit||t.explicit;
  const isPlaying=current?.id===t.id&&playing;
  return '<article class="chart-row '+(isPlaying?'playing':'')+'" data-row="'+t.id+'">'+
-  '<div class="chart-rank-col"><span class="chart-pos">'+pos+'</span><span class="chart-shift '+(pos===1?'crown':prog)+'" aria-hidden="true">'+shiftSym+'</span></div>'+
+  '<div class="chart-rank-col"><span class="chart-pos">'+pos+'</span><span class="chart-shift '+(pos===1&&prog!=='new'?'crown':prog)+'" aria-hidden="true">'+shiftSym+'</span></div>'+
   '<button class="row-track" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'">'+
    '<span class="row-art">'+art(t)+(isPlaying?icon('pause'):icon('play'))+'</span>'+
    '<div class="row-meta">'+
     '<strong>'+html(t.title)+(isExplicit?' <span class="badge-e" aria-label="Explicit" title="Ненормативная лексика">E</span>':'')+'</strong>'+
-    '<small>'+html(t.artist)+'</small>'+
+    '<small>'+html(t.artist)+(info?.plays?' · '+playsLabel(info.plays):'')+'</small>'+
    '</div>'+
   '</button>'+
   '<div class="row-actions">'+
@@ -1161,10 +1194,15 @@ function chartRow(t,info,index){
   '</div>'+
  '</article>';
 }
+function playsLabel(n){
+ const v=Number(n)||0, mod10=v%10, mod100=v%100;
+ const word=mod10===1&&mod100!==11?'прослушивание':mod10>=2&&mod10<=4&&(mod100<10||mod100>=20)?'прослушивания':'прослушиваний';
+ return (v>=1000?(v/1000).toFixed(v>=10000?0:1).replace('.',',')+' тыс.':String(v))+' '+word;
+}
 function chartView(){
  const items=chartItems();
  return '<div class="browse-view chart-view">'+shelfHeader('Чарт',backLink('#discover'))+
- '<section class="chart-hero"><div class="chart-hero-glow"></div><img src="/art/chart-hero.jpg" alt="Чарт"><h1>Чарт</h1><p>Яндекс Музыка · Sway</p>'+
+ '<section class="chart-hero"><div class="chart-hero-glow"></div><img src="/art/chart-hero.jpg" alt="Чарт"><h1>Чарт Sway</h1><p>'+(liveStats?.livePlays?'По прослушиваниям за 7 дней':'Самое популярное в Sway')+'</p>'+
  '<div class="chart-action-bar">'+
    '<button class="chart-action-btn" type="button" data-action="play-chart-favorites"><span class="action-circle">'+icon('personal')+'</span><small>Нравится</small></button>'+
    '<button class="chart-action-btn" type="button" data-action="download-chart"><span class="action-circle">'+icon('bolt')+'</span><small>Скачать</small></button>'+
@@ -1179,13 +1217,14 @@ function chartView(){
 }
 function trendsView(){
  const chartTop=chartItems().slice(0,5);
- const discoveries=tracks.slice(-20).reverse();
+ const rising=statItems('trends');
+ const discoveries=rising.length>=3?rising:tracks.slice(-20).reverse();
  return '<div class="browse-view trends-view">'+shelfHeader('Тренды',backLink('#discover'))+
  '<section class="shelf-section">'+titleLink('Чарт','#discover/chart')+
  '<div class="chart-set"><div class="chart-grid">'+
   chartTop.map((t,i)=>chartRow(t,rankedChart?.find(x=>x.id===t.id||x.trackId===t.id),i)).join('')+
  '</div></div></section>'+
- '<section class="shelf-section"><h2 class="title-link">Открытия</h2>'+
+ '<section class="shelf-section"><h2 class="title-link">'+(rising.length>=3?'Растут за неделю':'Открытия')+'</h2>'+
  rows(discoveries,true)+
  '</section></div>';
 }
@@ -1254,14 +1293,41 @@ function discoverView(section='',genre=''){
   if(section==='genres')content='<div class="shelf-genre-links">'+genres.map(t=>'<a class="mx-chip '+(t===genre?'on':'')+'" href="#discover/genres/'+encodeURIComponent(t)+'">'+html(t)+'</a>').join('')+'</div>'+rows(tracks.filter(t=>!genre||genreOf(t)===genre));
   return '<div class="browse-view">'+shelfHeader(html(genre||title),backLink('#discover'))+'<div class="browse-category">'+content+'</div></div>';
  }
- const saved=tracksFrom([...likes].reverse()), recent=recentItems(), debut=newReleases(tracks,{max:8,perArtist:1});
+ const debut=newReleases(tracks,{max:8,perArtist:1});
+ // Order: find, then what people play (chart, now, rising), external chart, mixes, artists, new.
  return '<div class="browse-view discover-view">'+shelfHeader('Что послушать')+'<a class="discover-search" href="#search">'+icon('search')+'<span>Трек, исполнитель или альбом</span>'+icon('forward')+'</a><nav class="catalog-icons" aria-label="Категории">'+categoryTabs.map(([id,label])=>'<a href="#discover/'+id+'">'+browseIcon(id)+'<span>'+label+'</span></a>').join('')+'</nav>'+
- '<div class="shelf-shortcuts">'+shortcut('#liked','Мне нравится',trackCount(saved.length),saved,'/art/favorites.svg')+shortcut('#history','История',recent[0]?.artist||'Недавние треки',recent,'/art/history.svg')+'</div>'+
- '<section class="discover-callout"><div><h2>Музыка<br>в твоём ритме</h2><p>Моя волна — по твоим вкусам и настроению</p><button class="discover-cta" type="button" data-action="start-personal">'+icon('play')+'Слушать волну</button></div><img src="/art/catalog-feature.svg" alt="" loading="lazy"></section>'+
- russiaChart.shelf()+
+ '<section class="sway-chart-card" id="discover-chart">'+discoverChartCard()+'</section>'+
+ '<div id="discover-live">'+discoverLive()+'</div>'+
+ '<div id="discover-russia">'+russiaChart.shelf()+'</div>'+
  '<section id="discover-mixes" class="shelf-mixes">'+catalogMixes()+'</section>'+
  '<section class="shelf-artists-section" id="discovery-artists">'+discoverArtistShelf()+'</section>'+
  (debut.length?'<section class="shelf-releases">'+titleLink('Новое в каталоге','#discover/releases')+'<div class="shelf-release-rail">'+debut.map(t=>'<button class="shelf-release" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'">'+art(t)+'<strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></button>').join('')+'</div></section>':'')+'</div>';
+}
+// Late data (chart, moods, statistics) refreshes discover sections in place: a full rebuild would
+// drop a tap or scroll that is already under way.
+function refreshDiscoverSlots(){
+ const active=document.activeElement;
+ for(const [id,draw] of [['#discovery-artists',discoverArtistShelf],['#discover-chart',discoverChartCard],['#discover-live',discoverLive],['#discover-mixes',catalogMixes]]){
+  const el=$(id);if(el&&!el.contains(active))el.innerHTML=draw();
+ }
+}
+function discoverChartCard(){
+ const items=chartItems().slice(0,5), live=!!liveStats?.livePlays;
+ const head='<header class="scc-head"><a href="#discover/chart"><small>'+(live?'По прослушиваниям за 7 дней':'Самое популярное в Sway')+'</small><strong>Чарт Sway'+icon('forward')+'</strong></a>'+(items.length?button(playing&&playMode==='chart'?'pause':'play','Слушать чарт','data-action="play-chart"','icon scc-play'):'')+'</header>';
+ if(!items.length)return head+chartEmpty();
+ return head+'<ol class="scc-list">'+items.map((t,i)=>{
+  const info=rankedChart?.find(x=>(x.id||x.trackId)===t.id), prog=info?.progress||'same';
+  const mark=prog==='new'?'<em class="scc-new">NEW</em>':prog==='up'?'<em class="scc-up" aria-label="Поднялся">▲</em>':prog==='down'?'<em class="scc-down" aria-label="Опустился">▼</em>':'';
+  return '<li><button type="button" data-play="'+t.id+'" data-row="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'"><b>'+(i+1)+'</b>'+art(t)+'<span><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></span>'+mark+'</button></li>';
+ }).join('')+'</ol><a class="scc-more" href="#discover/chart">Весь топ-100'+icon('forward')+'</a>';
+}
+function discoverRail(title,items,note=t=>t.artist,cls=''){
+ return '<section class="shelf-releases '+cls+'"><h2 class="shelf-title">'+title+'</h2><div class="shelf-release-rail">'+items.map(t=>'<button class="shelf-release" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'">'+art(t)+'<strong>'+html(t.title)+'</strong><small>'+html(note(t))+'</small></button>').join('')+'</div></section>';
+}
+function discoverLive(){
+ const now=statItems('now'), rising=statItems('trends'), people=new Map((liveStats?.now||[]).map(r=>[r.id,r.people]));
+ return (now.length?discoverRail('<span class="live-dot" aria-hidden="true"></span>Сейчас слушают'+(liveStats.nowCount>1?' <small>'+liveStats.nowCount+' чел.</small>':''),now.slice(0,12),t=>people.get(t.id)>1?people.get(t.id)+' слушают':t.artist,'shelf-now'):'')+
+  (rising.length>=3?discoverRail('Растут за неделю',rising.slice(0,12),t=>t.artist,'shelf-rising'):'');
 }
 function mobileLikes(){
  const active=playing&&playMode==='likes', disabled=favoriteItems().length?'':'disabled';
@@ -1405,19 +1471,84 @@ async function downloadGroup(source,{automatic=false}={}){
   if(automatic&&!problem&&!job.failed&&!job.controller.signal.aborted)queueLikedCache(2000);
  }
 }
+let offlineSort='recent', offlineQuery='';
+function offlineSorted(){
+ const stamp=t=>offlineTracks.get(t.id)?.savedAt||0;
+ const items=savedItems();
+ if(offlineSort==='artist')return items.sort((a,b)=>String(a.artist).localeCompare(String(b.artist),'ru')||String(a.title).localeCompare(String(b.title),'ru'));
+ if(offlineSort==='title')return items.sort((a,b)=>String(a.title).localeCompare(String(b.title),'ru'));
+ return items.sort((a,b)=>stamp(b)-stamp(a));
+}
+function offlineDuration(items){
+ const seconds=items.reduce((n,t)=>n+(Number(t.seconds)||0),0);if(!seconds)return '';
+ const h=Math.floor(seconds/3600), m=Math.round(seconds%3600/60);
+ return h?h+' ч '+m+' мин':m+' мин';
+}
+function offlineRows(items){
+ if(!items.length)return '';
+ return items.map(t=>'<article class="row offline-row" data-row="'+html(t.id)+'" data-offline-search="'+html((t.title+' '+t.artist).toLowerCase())+'"><button type="button" class="row-track" data-play="'+html(t.id)+'" aria-label="'+html('Воспроизвести '+t.title)+'"><span class="row-art">'+art({...t,art:offlineTracks.get(t.id)?.cover?offlineURL('art',t.id):t.art})+'</span><div><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></div></button><div class="row-actions"><small class="row-time">'+(t.seconds?time(t.seconds):'')+'</small>'+download(t)+'</div></article>').join('');
+}
 function offlineView(){
- const items=savedItems(),size=[...offlineTracks.values()].reduce((n,v)=>n+v.size,0);
+ const items=offlineSorted(),size=[...offlineTracks.values()].reduce((n,v)=>n+v.size,0);
  const missing=tracks.filter(t=>canDownload(t)&&!offlineTracks.has(t.id));
  const estimate=missing.reduce((n,t)=>n+(Number(t.bytes)||0),0);
+ const length=offlineDuration(items);
+ const sorts=[['recent','Недавние'],['artist','Исполнитель'],['title','Название']];
+ queueMicrotask(syncOfflineStorage);
  return '<div class="browse-view offline-view">'+shelfHeader('Скачанное',offlineMode?'':backLink('#library'))+
- '<section class="offline-card"><h1>Музыка без интернета</h1><p data-offline-count>'+trackCount(items.length)+' · '+storageSize(size)+'</p>'+
- '<div class="offline-actions">'+(items.length?'<button class="btn primary" type="button" data-action="play-offline">'+icon('play')+'Слушать</button>':'')+
+ '<section class="offline-card offline-hero"><div class="offline-hero-top"><span class="offline-disc" aria-hidden="true">'+icon('download')+'</span><div><h1>Музыка без интернета</h1><p data-offline-count>'+trackCount(items.length)+' · '+storageSize(size)+(length?' · '+length:'')+'</p></div></div>'+
+ '<div class="offline-meter" data-offline-meter hidden><span><i style="width:0%"></i></span><small></small></div>'+
+ '<div class="offline-actions">'+(items.length?'<button class="btn primary" type="button" data-action="play-offline">'+icon('play')+'Слушать</button><button class="btn" type="button" data-action="shuffle-offline">'+icon('shuffle')+'Перемешать</button>':'')+
  (offlineMode?'<button class="btn" type="button" data-action="retry-account">Подключиться</button><a class="btn" href="#settings">Настройки</a>':manualOffline?'<button class="btn" type="button" data-action="leave-offline">Выйти из офлайн-режима</button>':missing.length?'<button class="btn" type="button" data-action="download-catalog">'+icon('download')+'Скачать каталог'+(estimate?' · '+storageSize(estimate):'')+'</button>':'')+
  '<button class="btn" type="button" data-action="stop-downloads" hidden>Остановить</button></div>'+
  '<p class="offline-status" data-offline-status role="status"></p></section>'+
- '<p class="quiet" data-offline-readiness>'+offlineReadiness()+'</p>'+
- (items.length?'<div class="rows">'+items.map(t=>'<article class="row"><button type="button" class="row-track" data-play="'+html(t.id)+'" aria-label="'+html('Воспроизвести '+t.title)+'"><span class="row-art">'+art({...t,art:offlineTracks.get(t.id).cover?offlineURL('art',t.id):t.art})+'</span><div><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></div></button><div class="row-actions">'+download(t)+'</div></article>').join('')+'</div>':
- '<p class="shelf-empty">'+(offlineMode?'На этом устройстве пока нет скачанных треков.':'Сохрани отдельные треки в их меню или скачай каталог целиком.')+'</p>')+'</div>';
+ '<p class="quiet offline-readiness" data-offline-readiness>'+offlineReadiness()+'</p>'+
+ (items.length?'<div class="offline-tools">'+(items.length>6?'<label class="offline-search">'+icon('search')+'<input type="search" data-offline-filter placeholder="Найти в скачанном" value="'+html(offlineQuery)+'" aria-label="Найти в скачанном"></label>':'')+
+  '<div class="offline-sort" role="group" aria-label="Сортировка">'+sorts.map(([id,label])=>'<button type="button" class="mx-chip'+(offlineSort===id?' on':'')+'" data-offline-sort="'+id+'" aria-pressed="'+(offlineSort===id)+'">'+label+'</button>').join('')+'</div></div>'+
+  '<p class="offline-hint">Смахни трек влево, чтобы удалить его с устройства</p>'+
+  '<div class="rows offline-list" data-offline-list>'+offlineRows(items)+'</div><p class="shelf-empty" data-offline-nothing hidden>Ничего не нашлось</p>':
+ '<section class="offline-empty"><span class="offline-empty-art" aria-hidden="true">'+icon('download')+'</span><h2>Здесь пока пусто</h2><p>'+(maintenance?'Пока идёт обновление, играют только скачанные треки. После обновления скачай любимое — оно будет доступно всегда.':offlineMode?'На этом устройстве пока нет скачанных треков.':'Нажми '+icon('download')+' у трека или скачай каталог целиком — музыка будет играть даже без интернета.')+'</p>'+(offlineMode?'':'<a class="btn primary" href="#discover">Найти музыку</a>')+'</section>')+'</div>';
+}
+function filterOfflineRows(){
+ const q=offlineQuery.trim().toLowerCase();let shown=0;
+ for(const row of $$('[data-offline-list] .offline-row')){const hit=!q||row.dataset.offlineSearch.includes(q);row.hidden=!hit;if(hit)shown++;}
+ const none=$('[data-offline-nothing]');if(none)none.hidden=shown>0;
+}
+async function syncOfflineStorage(){
+ const meter=$('[data-offline-meter]');if(!meter||!navigator.storage?.estimate)return;
+ try{
+  const {usage=0,quota=0}=await navigator.storage.estimate();if(!quota)return;
+  const share=Math.min(100,usage/quota*100);
+  meter.hidden=false;meter.querySelector('i').style.width=Math.max(2,share).toFixed(1)+'%';
+  meter.querySelector('small').textContent='Занято '+storageSize(usage)+' из '+(quota>=1e9?new Intl.NumberFormat('ru',{maximumFractionDigits:1}).format(quota/1e9)+' ГБ':storageSize(quota))+' доступных браузеру';
+ }catch{}
+}
+// Swipe a downloaded row left to remove it from the device (the same as its download toggle).
+{
+ let swipe=null;
+ document.addEventListener('pointerdown',e=>{
+  const row=e.target.closest?.('[data-offline-list] .offline-row');
+  if(!row||e.pointerType==='mouse')return;
+  swipe={row,x:e.clientX,y:e.clientY,dx:0,locked:null};
+ },{passive:true});
+ document.addEventListener('pointermove',e=>{
+  if(!swipe)return;
+  const dx=e.clientX-swipe.x, dy=e.clientY-swipe.y;
+  if(swipe.locked===null&&Math.abs(dx)+Math.abs(dy)>10)swipe.locked=Math.abs(dx)>Math.abs(dy)*1.4&&dx<0;
+  if(!swipe.locked)return;
+  swipe.dx=Math.min(0,dx);swipe.row.style.transform='translateX('+swipe.dx+'px)';swipe.row.dataset.swiping=swipe.dx<-90?'remove':'';
+ },{passive:true});
+ const end=()=>{
+  if(!swipe)return;
+  const {row,dx,locked}=swipe;swipe=null;
+  if(!locked)return;
+  row.dataset.swallow=String(Date.now()+450);
+  if(dx<-90){row.style.transform='translateX(-110%)';row.style.opacity='0';setTimeout(()=>row.querySelector('[data-offline-toggle]')?.click(),180);}
+  else{row.style.transform='';delete row.dataset.swiping;}
+ };
+ document.addEventListener('click',e=>{const row=e.target.closest?.('.offline-row[data-swallow]');if(row&&Number(row.dataset.swallow)>Date.now()){e.preventDefault();e.stopImmediatePropagation();}},true);
+ document.addEventListener('pointerup',end,{passive:true});
+ document.addEventListener('pointercancel',end,{passive:true});
 }
 const emptyPlayer='<h2 class="dialog-title">Плеер</h2><p class="quiet">Выбери трек в каталоге.</p>';
 const fullCoverTrack=t=>t&&offlineTracks.get(t.id)?.cover&&(offlineOnly()||!navigator.onLine)?{...t,art:offlineURL('art',t.id)}:t;
@@ -2553,6 +2684,13 @@ document.addEventListener('click',e=>{
  const reportButton=e.target.closest('[data-track-report]');
  if(reportButton){const track=map.get(reportButton.dataset.trackReport);if(track){sheet.close();reportTrack(track);}return;}
  if(russiaChart.handle(e.target))return;
+ const sortButton=e.target.closest('[data-offline-sort]');
+ if(sortButton){
+  offlineSort=sortButton.dataset.offlineSort;
+  for(const b of $$('[data-offline-sort]')){const on=b===sortButton;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}
+  const list=$('[data-offline-list]');if(list){list.innerHTML=offlineRows(offlineSorted());filterOfflineRows();}
+  return;
+ }
  if(e.target.closest('a[href="/auth/yandex"]')&&/^#u\/[a-z0-9_]{3,24}$/.test(location.hash)){
   try{sessionStorage.setItem('sway.after-login',location.hash);}catch{}
  }
@@ -2670,6 +2808,8 @@ document.addEventListener('click',e=>{
   'favorites-menu':()=>open('favorites'),downloads:()=>open('downloads'),
   'download-catalog':()=>downloadGroup(tracks),'download-favorites':()=>downloadGroup(favoriteItems()),
   'stop-downloads':()=>{if(offlineBatch?.automatic){autoCacheLikes=false;save('auto-cache-likes',false);}offlineBatch?.controller.abort();},
+  'maintenance-retry':()=>{if(b)b.disabled=true;checkMaintenance().then(on=>{if(!on)startApp();else{offlineFeedback('Обновление ещё идёт');if(b)b.disabled=false;}});},
+  'shuffle-offline':()=>{const items=shuffled(savedItems().map(t=>t.id)).map(id=>savedItems().find(t=>t.id===id)).filter(Boolean);if(items.length)play(items[0],items,'offline');},
   'play-offline':()=>{const items=savedItems();if(items.length){if(playMode==='offline'&&offlineTracks.has(current?.id))toggle();else play(items[0],items,'offline');}},
   share:async()=>{const t=infoTrack||current;if(!t)return;rememberSearch();const url=t.provider?t.source:new URL('/t/'+encodeURIComponent(t.id),location.origin).href;try{if(navigator.share)await navigator.share({title:t.title,url});else{await navigator.clipboard.writeText(url);notice('Ссылка скопирована');}}catch(e){if(e.name!=='AbortError')notice('Не удалось поделиться ссылкой');}},
   'play-liked':()=>playSaved(mobile.matches&&page==='liked'?favoriteItems():tracksFrom([...likes].reverse())),
@@ -2711,6 +2851,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{
  if(e.target.id==='search-query'){search=e.target.value;searchResults();}
+ if(e.target.matches?.('[data-offline-filter]')){offlineQuery=e.target.value;filterOfflineRows();}
  if(e.target.matches?.(seekControl)){
   if(scrub?.element===e.target)updateTime();
   else seekPlayback(Number(e.target.value)/1000*audio.duration);
@@ -2917,6 +3058,30 @@ let booting=false,reconnectTimer;
 function reconnectOnline(){
  if(offlineMode&&!manualOffline&&!booting&&!document.hidden&&navigator.onLine!==false)void startApp();
 }
+// Site maintenance: the admin paused live music. Downloaded tracks keep playing, a banner explains why.
+let maintenance=null;
+async function checkMaintenance(){
+ try{
+  const r=await fetch('/api/status',{cache:'no-store',signal:AbortSignal.timeout(4000)});
+  maintenance=r.ok?await r.json():null;
+ }catch{maintenance=null;}
+ if(!maintenance?.maintenance)maintenance=null;
+ syncMaintenanceBanner();
+ return !!maintenance;
+}
+function maintenanceUntil(value){
+ const at=Date.parse(value||'');if(!Number.isFinite(at)||at<Date.now())return '';
+ const sameDay=new Date(at).toDateString()===new Date().toDateString();
+ return 'Ориентировочно до '+new Date(at).toLocaleString('ru-RU',sameDay?{hour:'2-digit',minute:'2-digit'}:{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+}
+function syncMaintenanceBanner(){
+ let banner=$('#maintenance-banner');
+ document.body.toggleAttribute('data-maintenance',!!maintenance);
+ if(!maintenance){banner?.remove();return;}
+ if(!banner){banner=document.createElement('aside');banner.id='maintenance-banner';banner.className='maintenance-banner';banner.setAttribute('role','status');document.documentElement.append(banner);}
+ const until=maintenanceUntil(maintenance.until);
+ banner.innerHTML='<span class="mb-icon" aria-hidden="true">'+icon('settings')+'</span><div><strong>Идёт обновление сайта</strong><small>'+html(maintenance.message||'Скоро всё заработает. Пока можно слушать скачанные треки.')+(until?' · '+html(until):'')+'</small></div><button type="button" class="icon" data-action="maintenance-retry" aria-label="Проверить снова">'+icon('repeat')+'</button>';
+}
 function enterOffline(){
  offlineMode=true;accountOffline=true;accountReady=true;user=null;accountProfile=null;
  likes=new Set(load('offline-likes',[...likes]).filter(id=>offlineTracks.has(id)));
@@ -2938,8 +3103,12 @@ async function startApp(){
    if(offlineMode)offlineFeedback('Нет подключения');
    enterOffline();return;
   }
+  // Checked alongside the account request so the maintenance probe adds no start-up delay.
+  const maintenanceCheck=checkMaintenance();
   try{
-   const data=await api('/api/me','GET',{},AbortSignal.timeout(6000));user=data.user;loginRequired=data.loginRequired===true;loginConfigured=data.loginConfigured===true;accountOffline=false;
+   const [data,paused]=await Promise.all([api('/api/me','GET',{},AbortSignal.timeout(6000)).catch(error=>({error})),maintenanceCheck]);
+   if(paused){enterOffline();return;}
+   if(data.error)throw data.error;user=data.user;loginRequired=data.loginRequired===true;loginConfigured=data.loginConfigured===true;accountOffline=false;
    offlineMode=false;document.body.removeAttribute('data-offline-mode');
    if(user){
     save('offline-likes',data.likes||[]);if(data.taste)applyTaste(data.taste);
@@ -2959,6 +3128,7 @@ async function startApp(){
   // even when the separate account service is temporarily unavailable.
   if(accountOffline)loginRequired=false;
   offlineMode=false;document.body.removeAttribute('data-offline-mode');
+  if(maintenance){maintenance=null;syncMaintenanceBanner();}
   if(!manualOffline&&location.hash==='#library/offline')history.replaceState(null,'','/#home');
   queueOwner=user?.id||'guest';restoreRecentHistory();await restoreQueue();render();void playlists.load().then(()=>{if(page==='library')render();});void accountListening.load();queueLikedCache();
  }finally{
@@ -2997,7 +3167,7 @@ async function fetchCatalog({requireNetwork=false}={}){
    renderResume();
   },error=>{document.querySelector('.catalog-retry')?.remove();if(error){const bar=document.createElement('div');bar.className='account-resume catalog-retry';bar.innerHTML='<span>Загружена часть каталога. Обнови, когда появится связь.</span><button class="btn" type="button" data-action="retry-account">Обновить</button>';main.prepend(bar);}},{requireNetwork});accept(result.items,result.settled===true);
   const metadata=async(path,fallback)=>fetch(path,{signal:AbortSignal.timeout(8000)}).then(r=>r.ok?r.json():fallback).catch(()=>fallback);
-  void Promise.all([metadata('/track-moods.json',{}),metadata('/chart.json',[]),metadata('/albums.json',[]),metadata('/artists.json',[]),metadata('/track-languages.json',{})]).then(([m,chart,albums,artists,languageData])=>{measured=m||{};languages=languageData||{};if(Array.isArray(albums))albumsData=albums;if(Array.isArray(artists))artistsData=artists;if(Array.isArray(chart)&&chart.length){rankedChart=chart;chartTime=Date.now();}accept(catalogEntries,false);if(['discover','artist','album'].includes(page))render();});
+  void Promise.all([metadata('/track-moods.json',{}),metadata('/chart.json',[]),metadata('/albums.json',[]),metadata('/artists.json',[]),metadata('/track-languages.json',{})]).then(([m,chart,albums,artists,languageData])=>{measured=m||{};languages=languageData||{};if(Array.isArray(albums))albumsData=albums;if(Array.isArray(artists))artistsData=artists;if(Array.isArray(chart)&&chart.length&&!liveStats){rankedChart=chart;chartTime=Date.now();}accept(catalogEntries,false);if(page==='discover'&&!location.hash.split('/')[1])refreshDiscoverSlots();else if(['discover','artist','album'].includes(page))render();});
   return tracks;
  }catch(error){
   if(error.status===401){loginRequired=true;offlineMode=false;accountOffline=false;render();}
