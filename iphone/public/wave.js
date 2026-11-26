@@ -26,22 +26,37 @@ export function rankWave(catalog,{likes=new Set(),history=[],preferredGenres=new
   signal(t,(kind==='listen'?1:-1.45)*weight);
   add(individual,id,(kind==='listen'?.08:-1.65)*weight);
  }
+ const recentArtists=new Map();
+ for(const {id,kind} of history.slice(-30)){const t=index.get(id);if(t&&kind==='listen')for(const name of artistCredits(t.artist))add(recentArtists,name,1);}
  function affinity(table,key){return Math.tanh((table.get(key)||0)/3.5);}
  const remaining=catalog.filter(t=>!notNow.has(t.id)&&(!mood||t.moods.includes(mood))).map(t=>{
   const taste=t.moods.reduce((sum,key)=>sum+affinity(moods,key),0)/Math.max(1,t.moods.length);
   const genre=genreOf(t),preferred=artistCredits(t.artist).some(name=>preferredArtists.has(name));
    const credits=artistCredits(t.artist),artistAffinity=credits.length?Math.max(...credits.map(name=>affinity(artists,name))):0;
-  const match=.85*taste+.65*affinity(genres,genre)+.52*artistAffinity+(likes.has(t.id)?.55:0)+(preferredGenres.has(genre)?.9:0)+(preferred?1.45:0);
-  const score=match*(explore?.26:1)+Math.max(-2.8,individual.get(t.id)||0)-(fresh.has(t.id)?1.1:0)+random()*(explore?2.6:1.1);
-  return {t,score};
+  const match=.85*taste+.65*affinity(genres,genre)+.52*artistAffinity+(likes.has(t.id)?.55:0)+(preferredGenres.has(genre)?.9:0)+(preferred?1.05:0);
+  // Fatigue: an artist heard several times lately steps back, so one favourite does not open every station.
+  const tired=credits.length?Math.max(...credits.map(name=>recentArtists.get(name)||0)):0;
+  const score=match*(explore?.26:1)+Math.max(-2.8,individual.get(t.id)||0)-(fresh.has(t.id)?1.1:0)-Math.min(3.2,tired*.6)+random()*(explore?2.6:1.1);
+  return {t,score,credits};
  }).sort((a,b)=>b.score-a.score);
- const result=[];
- while(remaining.length){
-  // Space artists out: neither of the last two songs may share the next one's artist while a close alternative exists.
-  const recent=result.slice(-2).map(t=>t.artist), next=remaining.findIndex(({t,score})=>!recent.includes(t.artist)&&score>remaining[0].score-.75);
-  result.push(remaining.splice(Math.max(0,next),1)[0].t);
+ return spreadArtists(remaining);
+}
+// Greedy re-order: every pick of an artist lowers that artist's later songs, and nobody repeats
+// within the last four songs while anyone else is left. The head of the list is what people hear.
+function spreadArtists(items,head=150,window=90){
+ const result=[],used=new Map();
+ while(items.length&&result.length<head){
+  const recent=new Set(result.slice(-4).flatMap(x=>x.credits));
+  let best=0,bestScore=-Infinity;
+  for(let i=0;i<Math.min(items.length,window);i++){
+   const {score,credits}=items[i],count=credits.length?Math.max(...credits.map(name=>used.get(name)||0)):0;
+   const value=score-count*.9-(credits.some(name=>recent.has(name))?4:0);
+   if(value>bestScore){bestScore=value;best=i;}
+  }
+  const [pick]=items.splice(best,1);result.push(pick);
+  for(const name of pick.credits)used.set(name,(used.get(name)||0)+1);
  }
- return result;
+ return [...result,...items].map(x=>x.t);
 }
 
 export function deckRecommendations(catalog,options={}){

@@ -1,5 +1,5 @@
 import {offlineCache,offlineRoot} from './public/offline-storage.js';
-import {fetchAsset,isTransferAsset} from './public/asset-loader.js';
+import {fetchAsset,isTransferAsset,interruptedConnection,markInterruptedConnection} from './public/asset-loader.js';
 import {fetchMedia} from './public/media-loader.js';
 
 const SHELL='sway-shell-v39';
@@ -36,6 +36,17 @@ async function warmShell(){
  }));
 }
 
+// Art: on a cutting network go straight to small parts; otherwise check the whole body so a cut image falls back.
+async function artResponse(event,request){
+ if(!interruptedConnection())try{
+  const r=await fetch(request);if(!r.ok)return r;
+  const d=await r.arrayBuffer(),n=r.headers.get('Content-Length');
+  if(n&&!r.headers.get('Content-Encoding')&&d.byteLength!=n)throw 0;
+  return new Response(d,{status:r.status,headers:r.headers});
+ }catch(e){event.request.signal?.throwIfAborted();if(e?.name!=='TimeoutError')markInterruptedConnection();}
+ return fetchAsset(event.request,{recovery:true});
+}
+
 async function shellResponse(event,path){
  const cache=await caches.open(SHELL);
  const saved=await cache.match(path),entry=path==='/'||path==='/app-bundle.js'||path==='/sway.css';
@@ -47,7 +58,7 @@ async function shellResponse(event,path){
   // strict code path flipped every later asset into 8 KB chunks and then failed the image outright.
   const art=path.startsWith('/art/');
   const request=new Request(event.request,{cache:entry?'no-store':event.request.cache,signal:AbortSignal.timeout(art?15000:8000)});
-  let response=art?await fetch(request).catch(()=>{event.request.signal?.throwIfAborted();return fetchAsset(event.request,{recovery:true});}):
+  let response=art?await artResponse(event,request):
    isTransferAsset(path)?await fetchAsset(request):await fetch(request);
   if(path==='/'&&response.ok){
    const bytes=await response.arrayBuffer();

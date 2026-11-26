@@ -68,11 +68,11 @@ try{
    const first=await active();assert.match(first,/^pop-en-/);
    assert.equal(await deck.evaluate(el=>el.scrollTop),0,'Focusing a station must not clip its raised glyph');
    assert.equal(await page.locator('.wave-selection span').textContent(),'Поп на английском');
-   assert.deepEqual(await deck.locator('[data-deck-shortcut]').allTextContents(),['Назад к привычному','Встряхнуть Мою волну']);
+   assert.deepEqual(await deck.locator('[data-deck-shortcut]').allTextContents(),['Встряхнуть Мою волну']);
    const commands=await deck.locator('[data-deck-shortcut] button').evaluateAll(nodes=>nodes.map(el=>({text:el.textContent,left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right,viewport:innerWidth})));
-   assert.ok(commands.every(el=>el.left>=0&&el.right<=el.viewport),'Both station commands must fit beside the selected card: '+JSON.stringify(commands));
+   assert.ok(commands.every(el=>el.left>=0&&el.right<=el.viewport),'The station command must fit beside the selected card: '+JSON.stringify(commands));
    const order=await deck.locator(':scope>div').evaluateAll(nodes=>nodes.map(n=>n.dataset.deckItem));
-   const at=order.indexOf('station-english-pop');assert.deepEqual(order.slice(at-2,at),['usual','shake']);
+   const at=order.indexOf('station-english-pop');assert.deepEqual(order.slice(at-1,at),['shake']);
    await page.locator('.mx-pause').click();const before=await page.locator('#audio').evaluate(a=>a.currentTime);
    await centered().locator('button').tap();await page.waitForFunction(p=>document.querySelector('#audio').currentTime>p+.1,before);
    assert.equal(await active(),first,'Tapping the active station resumes the same position');
@@ -95,7 +95,7 @@ try{
    const far=await centered().getAttribute('data-deck-item');assert.equal(await page.locator('.wave-deck-frame').getAttribute('data-selection'),far);
    assert.equal(await deck.evaluate(el=>el.scrollTop),0);
    const farOrder=await deck.locator(':scope>div').evaluateAll(nodes=>nodes.map(n=>n.dataset.deckItem));
-   assert.deepEqual(farOrder.slice(farOrder.indexOf(far)-2,farOrder.indexOf(far)),['usual','shake'],'Commands must follow the selection after virtualizing');
+   assert.deepEqual(farOrder.slice(farOrder.indexOf(far)-1,farOrder.indexOf(far)),['shake'],'Commands must follow the selection after virtualizing');
    await page.screenshot({path:`${out}/station-${engine.name()}.png`,scale:'css'});
    // The 26-second fixture may end while the long deck exercise is running.
    // Keep one track selected while testing duplicate playlist additions.

@@ -5,18 +5,18 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-5yOhYg1ijViFD4Y9X/LlMQTj5+nK+gyvnSKjcgrJMfs=' 'sha256-k5f77URMLlCCOxNsZhp/L/11/JTpsxIfQPDi7zimWk4=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-5yOhYg1ijViFD4Y9X/LlMQTj5+nK+gyvnSKjcgrJMfs=' 'sha256-IS0CpFhgXZLYKaTldSEiHKxToJ5IhQYRf0miLBlxsTU=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
 /media/*
   Cache-Control: public, max-age=86400
 # sway:integrity:start
 /admin-client.js
   X-Sway-Size: 6857
 /app-bundle.js
-  X-Sway-Size: 698130
+  X-Sway-Size: 698872
 /app.js
-  X-Sway-Size: 265237
+  X-Sway-Size: 265097
 /asset-loader.js
-  X-Sway-Size: 8638
+  X-Sway-Size: 8758
 /audio-transition.js
   X-Sway-Size: 9318
 /boot.js
@@ -116,7 +116,7 @@
 /sway-reference.css
   X-Sway-Size: 24686
 /sway.css
-  X-Sway-Size: 268852
+  X-Sway-Size: 270815
 /system-media.js
   X-Sway-Size: 4531
 /taste-ui.js
@@ -128,7 +128,7 @@
 /track-report.js
   X-Sway-Size: 2329
 /ui-polish.css
-  X-Sway-Size: 18423
+  X-Sway-Size: 20307
 /wave-deck.js
   X-Sway-Size: 10393
 /wave-filters.js
@@ -144,10 +144,10 @@
 /wave.css
   X-Sway-Size: 13006
 /wave.js
-  X-Sway-Size: 3691
+  X-Sway-Size: 4636
 # sway:integrity:end
 # sway:worker:start
 /sw.js
   Cache-Control: public, max-age=0, must-revalidate, no-transform
-  X-Sway-Size: 15046
+  X-Sway-Size: 15342
 # sway:worker:end

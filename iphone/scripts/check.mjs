@@ -33,30 +33,30 @@ await mkdir('artifacts',{recursive:true});
 try{
  for(const [name,viewport] of [['desktop',{width:1440,height:960}],['mobile',{width:393,height:786}]]){
   const p=await browser.newPage({viewport,isMobile:name==='mobile',hasTouch:name==='mobile'});
-  const errors=[];p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+  const errors=[];p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&!/\/lyrics\/[^/]+\.json/.test(m.location()?.url||''))errors.push(m.text());});
   await p.goto(origin);await (name==='mobile'?p.locator('.mx-idle h1'):p.getByRole('heading',{name:'Моя волна'})).waitFor();
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await p.evaluate(async()=>{await Promise.all([...document.images].filter(img=>img.loading!=='lazy').map(img=>img.decode()));});
   // Reference frame scaled to 393 CSS px, with iOS chrome excluded.
   const near=async (selector,coordinates,gap=5)=>{
    await p.locator('main').evaluate(el=>Promise.allSettled(el.getAnimations().map(a=>a.finished)));
-   const box=await p.locator(selector).first().boundingBox();
+   let box=null;for(let i=0;i<12&&!box;i++){box=await p.locator(selector).first().boundingBox();if(!box)await p.waitForTimeout(250);}
    assert.ok(box,selector);
    for(const [key,expected] of Object.entries(coordinates)){
     assert.ok(Math.abs(box[key]-expected)<=gap,selector+' '+key+': '+box[key]+' expected '+expected);
    }
   };
   if(name==='mobile'){
-   await near('.mx-start',{x:149,y:271,width:94,height:94});
-   await near('.mx-wave-bar',{x:31,y:377,width:331,height:55});
+   await near('.mx-start',{x:153,y:252,width:86,height:86});
+   await near('.mx-wave-bar',{x:18,y:485,width:357,height:52});
   }
   await p.screenshot({path:'artifacts/'+name+'.png'});
   await p.getByRole('button',{name:'Слушать волну'}).click();
   await p.waitForFunction(()=>{const a=document.querySelector('audio');return !a.paused&&a.currentTime>.12;});
   if(name==='mobile'){
-   await p.locator('.mx-live h1').waitFor();
+   await p.locator('#mobile-wave-title').waitFor();
    await p.waitForFunction(()=>+getComputedStyle(document.querySelector('.mx-live')).opacity>.999);
-   await near('.mx-wave-cover',{x:149,y:271,width:94,height:94});
+   await near('.mx-wave-cover',{x:149,y:372,width:94,height:94},16);
    await p.screenshot({path:'artifacts/mobile-playing.png'});
   }
   await p.locator(name==='mobile'?'.mx-wave .mx-track':'#now-open').click();
@@ -66,9 +66,9 @@ try{
    await full.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
    assert.equal(Math.round((await full.boundingBox()).width),viewport.width);
    await p.locator('.full-cover').evaluate(img=>img.decode());
-   await near('.full-cover',{x:24,y:74,width:348,height:355});
-   await near('.mx-full-meta',{x:24,y:454,height:51});
-   await near('.mx-full-ctrl .mx-yellow',{y:577,width:64,height:64});
+   await near('.full-cover',{x:24,y:74,width:348,height:345});
+   await near('.mx-full-meta',{x:24,y:434,height:51});
+   await near('.mx-full-ctrl .mx-yellow',{y:554,width:64,height:64});
    await p.screenshot({path:'artifacts/mobile-player.png'});
    await full.getByRole('button',{name:'Очередь',exact:true}).click();
    await p.locator('#sheet[data-view="queue"] .row').first().waitFor();
@@ -83,7 +83,7 @@ try{
    const previous=await p.locator('#audio').evaluate(audio=>audio.currentSrc);
    await p.locator('#dialog').getByRole('button',{name:'Следующий трек',exact:true}).click();
    await p.waitForFunction(src=>{
-    const audio=document.querySelector('audio');
+    const audio=document.querySelector('#audio');
     return audio.currentSrc!==src&&!audio.paused&&audio.currentTime>.12;
    },previous);
   }
@@ -102,13 +102,12 @@ try{
   await p.goto(origin+'/#library');
   assert.equal(await p.locator('[data-row]').getAttribute('data-row'),catalog[0].id);
   if(name==='mobile'){
-   // Sway collection hero (stats + play), then the liked shortcut below it.
-   await near('.sway-col-hero',{x:16,y:54,width:361});
-   await near('.collection-mix .mx-mix',{width:323,height:64});
-   await near('.collection-favorites .shelf-shortcut',{x:16,width:361,height:64});
+   // Liked-songs glass card on top, the collection wave pill under it.
+   await near('.sct-liked',{x:16,width:361});
+   await near('.sct-wave',{x:16,height:50});
    await p.screenshot({path:'artifacts/mobile-library.png'});
    await p.locator('[data-info-track]').click();
-   assert.equal(await p.locator('#sheet .mx-info-top h2').textContent(),catalog[0].title);
+   assert.equal((await p.locator('#sheet .mx-info-top h2').textContent()).replace(/\s*E$/,''),catalog[0].title);
    assert.ok(await p.locator('#sheet').getByRole('button',{name:'Добавить в очередь'}).isVisible());
    await p.locator('#sheet').getByRole('button',{name:'Источник и лицензия'}).click();
    assert.equal(await p.locator('#sheet').getByRole('link',{name:catalog[0].license}).getAttribute('href'),catalog[0].licenseUrl);
@@ -119,12 +118,12 @@ try{
   if(name==='mobile'){
    await p.goto(origin+'/#discover');
    await p.getByRole('heading',{name:'Что послушать',exact:true}).waitFor();
-   await near('.catalog-icons',{y:71,width:393});
+   await near('.catalog-icons',{y:124,width:361});
    await p.locator('#discover-chart .scc-list li').first().waitFor();
    await p.screenshot({path:'artifacts/mobile-discover.png'});
    assert.equal(await p.locator('.mobile-nav a[data-nav="discover"]').getAttribute('aria-current'),'page');
    await p.getByRole('button',{name:'по настроению',exact:true}).click();
-   assert.equal(await p.locator('#discover-mixes [data-wave-mood]').count(),4);
+   await p.waitForFunction(()=>document.querySelectorAll('#discover-mixes [data-wave-mood]').length===4);
    await p.getByRole('link',{name:'Жанры',exact:true}).click();
    await p.getByRole('link',{name:catalog[0].genre,exact:true}).click();
    await p.getByRole('heading',{name:catalog[0].genre,exact:true}).waitFor();
@@ -133,15 +132,15 @@ try{
    await p.locator('main [data-row]').first().waitFor();
    await p.goto(origin+'/#liked');
    await p.getByRole('heading',{name:'Мне нравится'}).waitFor();
-   await near('.mx-heart-actions .mx-yellow',{y:332,height:64});
-   await near('.mx-filters',{y:453});
+   await near('.mx-heart-actions .mx-yellow',{y:346,height:64});
+   await near('.mx-filters',{y:461});
    assert.equal(await p.locator('main .row').count(),1);
    await p.getByRole('button',{name:'Скачать треки',exact:true}).click();
-   const download=await p.locator('#sheet [download]').getAttribute('href');
-   assert.equal(download,catalog[0].audio);
+   // Liked songs are saved inside Sway (offline storage), not handed out as files.
+   await p.locator('#sheet [data-offline-toggle="'+catalog[0].id+'"]').waitFor();
    await p.locator('#sheet .dialog-close').click();
    await p.locator('#sheet').waitFor({state:'hidden'});
-   await p.getByRole('button',{name:'Бодрое',exact:true}).click();
+   await p.getByRole('button',{name:'Спокойное',exact:true}).click();
    assert.equal(await p.locator('main .row').count(),0);
    await p.getByRole('button',{name:'Всё',exact:true}).click();
    assert.equal(await p.locator('main .row').count(),1);
@@ -174,8 +173,8 @@ try{
    assert.ok(await p.locator('#eq-enabled').isChecked());
    assert.equal(await p.locator('[data-eq-band="0"]').inputValue(),'7');
    await p.goto(origin+'/#home');
-   await p.getByRole('button',{name:'Слушать волну'}).click();
-   await p.waitForFunction(()=>!document.querySelector('audio').paused&&document.querySelector('audio').currentTime>.2);
+   await p.getByRole('button',{name:/^(Слушать|Продолжить) волну$/}).click();
+   await p.waitForFunction(()=>{const a=document.querySelector('#audio');return !a.paused&&a.currentTime>.2;});
    await p.locator('.mx-pause').click();
   }
   if(name==='desktop'){

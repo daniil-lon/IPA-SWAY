@@ -1,5 +1,6 @@
 import {nativeAndroid,connectNativeAudio,nativeEqualizer,nativeQueue,nativeRepeat} from './native-audio.js';
 import {loadCatalog} from './catalog-loader.js';
+import {fetchAsset} from './asset-loader.js';
 import {searchTracks,normalizeSearch} from './smart-search.js';
 import {createListeningAccount} from './listening-account.js';
 import {mountListeningStats} from './listening-stats.js';
@@ -280,7 +281,7 @@ async function api(path,method='GET',data={},signal){
 function tracksFrom(ids){return ids.map(x=>map.get(x)).filter(Boolean);}
 function time(n){return Number.isFinite(n)?Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0'):'–:––';}
 const button=(name,label,attr='',classes='icon')=>'<button type="button" class="'+classes+'" aria-label="'+html(label)+'" '+attr+'>'+icon(name)+'</button>';
-const art=t=>'<img src="'+html(t.art)+'" alt="">';
+const art=t=>'<img src="'+html(t.art)+'" alt="" loading="lazy" decoding="async">';
 const download=t=>canDownload(t)?button(offlineTracks.has(t.id)?'check':'download',offlineTracks.has(t.id)?'Удалить из скачанного: '+t.title:'Скачать в Sway: '+t.title,'data-offline-toggle="'+html(t.id)+'"'+(offlineJobs.has(t.id)||!offlineTracks.has(t.id)&&(offlineOnly()||navigator.onLine===false)?' disabled':''),'icon offline-toggle'+(offlineTracks.has(t.id)?' saved':'')):'';
 const row=(t,compact=false)=>'<article class="row" data-row="'+t.id+'"><button class="row-track" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'"><span class="row-art">'+art(t)+'</span><div><strong>'+html(t.title)+(t.isExplicit?' <span class="badge-e" aria-label="Explicit" title="Ненормативная лексика">E</span>':'')+'</strong><small>'+html(t.artist)+(t.provider?' <span class="source-tag">Commons</span>':'')+'</small></div></button><div class="row-actions"><small>'+time(t.seconds)+'</small>'+(compact?button('more','Действия с треком «'+t.title+'»','data-info-track="'+t.id+'"'):button('heart','Мне нравится','data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"')+playlists.quickButton(t,button)+button('plus','Добавить в очередь','data-add="'+t.id+'"'))+'</div></article>';
 const rows=(items,compact=false)=>items.length?'<div class="rows">'+items.map(t=>row(t,compact)).join('')+'</div>':'<div class="panel"><p class="quiet">Здесь пока нет треков.</p></div>';
@@ -350,7 +351,7 @@ const collectionSearchLink='<a class="icon" href="#search/collection" aria-label
 const profileLink='<a class="icon" href="#profile" aria-label="Профиль">'+icon('user')+'</a>';
 function waveDeck(){
  const shortcut=(key,title,glyph)=>'<div data-deck-item="'+key+'" data-deck-shortcut class="wave-deck-item" hidden><button type="button" class="wave-deck-button" data-action="wave-'+key+'"><span class="wave-deck-glyph">'+icon(glyph)+'</span><span>'+title+'</span></button></div>';
- return '<section class="wave-deck-frame" aria-label="Подборки по настроению"><div class="wave-deck" tabindex="0" role="group" aria-label="Лента подборок">'+shortcut('usual','Назад к привычному','undo')+shortcut('shake','Встряхнуть Мою волну','shake')+'</div>'+button('back','Предыдущая подборка','data-deck-back','icon wave-deck-arrow')+button('forward','Следующая подборка','data-deck-next','icon wave-deck-arrow')+'</section>';
+ return '<section class="wave-deck-frame" aria-label="Подборки по настроению"><div class="wave-deck" tabindex="0" role="group" aria-label="Лента подборок">'+shortcut('shake','Встряхнуть Мою волну','shake')+'</div>'+button('back','Предыдущая подборка','data-deck-back','icon wave-deck-arrow')+button('forward','Следующая подборка','data-deck-next','icon wave-deck-arrow')+'</section>';
 }
 function waveDeckChoices(){
  const recommendation=suggest();
@@ -394,7 +395,7 @@ const wavePhoto=t=>resolveArtist((t.artists||artistCredits(t.artist))[0]||t.arti
 // front of their own name, the original photo turns into a soft glow behind.
 let cutouts=null,cutoutsLoading=null;
 function loadCutouts(){
- return cutoutsLoading??=fetch('/art/cutouts/index.json').then(r=>r.ok?r.json():{}).catch(()=>({})).then(map=>{cutouts=map;const root=$('#mx-wave-root'),t=lastHeard();if(root&&t)setWavePhoto(root.querySelector('.mx-artist-photo'),t);});
+ return cutoutsLoading??=fetchAsset(new Request('/art/cutouts/index.json',{credentials:'same-origin'})).then(r=>{if(!r.ok)throw new Error('cutouts_'+r.status);return r.json();}).catch(()=>{setTimeout(()=>{cutoutsLoading=null;},20000);return null;}).then(map=>{if(!map)return;cutouts=map;const root=$('#mx-wave-root'),t=lastHeard();if(root&&t)setWavePhoto(root.querySelector('.mx-artist-photo'),t);});
 }
 function waveCutout(src){
  const name=/^\/art\/artists\/(.+)\.(?:jpe?g|png|webp)$/i.exec(src||'')?.[1];
@@ -406,15 +407,16 @@ function waveCutout(src){
 function setWavePhoto(img,t){
  const src=wavePhoto(t);img.hidden=!src;
  if(!src)img.removeAttribute('src');else if(img.getAttribute('src')!==src)img.src=src;
- const live=img.closest('.mx-live'),cut=live?.querySelector('.mx-artist-cut');if(!cut)return;
+ const live=img.closest('.mx-live');if(!live)return;
  const cutSrc=waveCutout(src);
- if(!cutSrc){cut.hidden=true;cut.removeAttribute('src');delete live.dataset.cutout;return;}
- if(cut.getAttribute('src')!==cutSrc){
-  cut.hidden=true;delete live.dataset.cutout;
-  cut.onload=()=>{if(cut.getAttribute('src')===cutSrc){cut.hidden=false;live.dataset.cutout='';}};
-  cut.onerror=()=>{cut.hidden=true;delete live.dataset.cutout;};
-  cut.src=cutSrc;
- }
+ if(live.dataset.cutWant===(cutSrc||''))return;
+ live.dataset.cutWant=cutSrc||'';live.querySelector('.mx-artist-cut')?.remove();delete live.dataset.cutout;
+ if(!cutSrc)return;
+ const cut=new Image();cut.className='mx-artist-cut';cut.alt='';cut.decoding='async';
+ const fresh=()=>live.isConnected&&live.dataset.cutWant===cutSrc;
+ cut.onload=()=>{if(!fresh())return;live.querySelector('.mx-artist-cut')?.remove();(live.querySelector('.mx-title-slot')||img).after(cut);live.dataset.cutout='';};
+ cut.onerror=()=>{cut.onerror=null;if(!fresh())return;fetchAsset(new Request(cutSrc),{recovery:true}).then(r=>r.ok?r.blob():null).then(blob=>{if(blob&&fresh())cut.src=URL.createObjectURL(blob);}).catch(()=>{});};
+ cut.src=cutSrc;
 }
 let currentStory = null, storyIndex = 0, storyTimer = null;
 function storiesRail(){ return ''; }
@@ -560,7 +562,7 @@ function mobileHome(){
  return '<section id="mx-wave-root" class="mx-wave" data-track="'+t.id+'" data-playing="'+(playing||starting)+'"><div class="mx-wave-atmosphere" aria-hidden="true"><div class="mx-wave-surface is-current"></div><div class="mx-wave-surface"></div><div class="wave-bloom"><span></span><span></span><span></span></div>'+waveCanvas+'</div>'+
  navHeader('<span data-wave-heading><span class="mx-wave-caption">Моя волна</span></span>'+waveSelection(),profileLink,searchLink)+
  '<div id="sway-promo-slot"></div>'+
- '<div class="mx-stage"><div class="mx-live"><img class="mx-artist-photo" alt="" decoding="async"'+(wavePhoto(t)?' src="'+html(wavePhoto(t))+'"':' hidden')+'><div class="mx-title-slot"><h1 id="mobile-wave-title" data-long="'+(front.length>21)+'">'+html(front)+'</h1></div><img class="mx-artist-cut" alt="" decoding="async" loading="lazy" hidden><div class="mx-art"><img class="mx-wave-cover" src="'+html(t.art)+'" alt=""><button class="mx-art-open" type="button" data-action="mobile-play" aria-label="Развернуть плеер с обложки"></button></div></div>'+
+ '<div class="mx-stage"><div class="mx-live"><img class="mx-artist-photo" alt="" decoding="async"'+(wavePhoto(t)?' src="'+html(wavePhoto(t))+'"':' hidden')+'><div class="mx-title-slot"><h1 id="mobile-wave-title" data-long="'+(front.length>21)+'">'+html(front)+'</h1></div><div class="mx-art"><img class="mx-wave-cover" src="'+html(t.art)+'" alt=""><button class="mx-art-open" type="button" data-action="mobile-play" aria-label="Развернуть плеер с обложки"></button></div></div>'+
  '<div class="mx-idle"><h1>Моя волна</h1>'+button('play',current?'Продолжить волну':'Слушать волну','data-action="mobile-wave"','icon mx-start')+'</div></div><div class="mx-wave-bar">'+
  button('pause','Пауза','data-action="mobile-wave"','mx-pill mx-pause icon')+'<div class="mx-track-control"><button class="mx-pill mx-track" type="button" data-action="mobile-play"><span class="mx-track-playing">'+html(t.title)+'</span><span class="mx-track-idle">'+html(t.artist+' — '+t.title)+'</span></button><label class="mx-wave-progress" hidden><input class="wave-seek" type="range" min="0" max="1000" value="0" aria-label="Перемотка на главной"></label></div>'+button('heart','Мне нравится','data-wave-like data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"','mx-pill mx-wave-like icon')+
  '</div>'+waveFiltersBar()+waveDeck()+'</section>';
@@ -1224,7 +1226,7 @@ function playsLabel(n){
 function chartView(){
  const items=chartItems();
  return '<div class="browse-view chart-view">'+shelfHeader('Чарт',backLink('#discover'))+
- '<section class="chart-hero"><div class="chart-hero-glow"></div><img src="/art/chart-hero.jpg" alt="Чарт"><h1>Чарт Sway</h1><p>'+(liveStats?.livePlays?'По прослушиваниям за 7 дней':'Самое популярное в Sway')+'</p>'+
+ '<section class="chart-hero"><img class="chart-hero-bg" src="/art/chart-hero.jpg" alt="" aria-hidden="true"><div class="chart-hero-glow"></div><img class="chart-hero-cover" src="/art/chart-hero.jpg" alt="Чарт"><h1>Чарт Sway</h1><p>'+(liveStats?.livePlays?'По прослушиваниям за 7 дней':'Самое популярное в Sway')+'</p>'+
  '<div class="chart-action-bar">'+
    '<button class="chart-action-btn" type="button" data-action="play-chart-favorites"><span class="action-circle">'+icon('personal')+'</span><small>Нравится</small></button>'+
    '<button class="chart-action-btn" type="button" data-action="download-chart"><span class="action-circle">'+icon('bolt')+'</span><small>Скачать</small></button>'+
@@ -1354,7 +1356,7 @@ function discoverLive(){
 function mobileLikes(){
  const active=playing&&playMode==='likes', disabled=favoriteItems().length?'':'disabled';
  return '<div class="favorites-view">'+navHeader('Мне нравится',backLink('#library'),collectionSearchLink+button('more','Действия с избранным','data-action="favorites-menu"'))+
- '<section class="mx-heart"><img class="mx-heart-art" src="/art/favorites.svg" alt=""><h1>Мне нравится</h1><div class="mx-heart-actions"><div>'+button('download','Скачать треки','data-action="downloads" '+disabled)+'<span>Скачать</span></div><div>'+button(active?'pause':'play',active?'Пауза':'Слушать','data-action="play-liked" '+disabled,'icon mx-yellow')+'<span id="mx-favorite-label">'+(active?'Пауза':'Слушать')+'</span></div></div></section>'+favoriteChips()+
+ '<section class="mx-heart"><span class="mx-heart-tile"><img class="mx-heart-art" src="/art/favorites.svg" alt=""></span><h1>Мне нравится</h1><p class="mx-heart-count">'+trackCount(favoriteItems().length)+'</p><div class="mx-heart-actions"><div>'+button('download','Скачать треки','data-action="downloads" '+disabled)+'<span>Скачать</span></div><div>'+button(active?'pause':'play',active?'Пауза':'Слушать','data-action="play-liked" '+disabled,'icon mx-yellow')+'<span id="mx-favorite-label">'+(active?'Пауза':'Слушать')+'</span></div></div></section>'+favoriteChips()+
  '<div class="mx-gap mx-favorite-results">'+rows(favoriteItems(),true)+'</div></div>';
 }
 function collectionView(section=''){
@@ -1368,9 +1370,10 @@ function collectionView(section=''){
  }
  const grid=[['#library/offline','Скачанное',trackCount(offlineTracks.size),'download'],['#library/playlists','Мои плейлисты','','library'],['#library/artists','Исполнители','','user'],['#settings','Настройки','','settings'],['#history','История','','history'],['#settings/import','Импорт плейлиста','','share']];
  return '<div class="browse-view collection-view">'+shelfHeader('Коллекция',profileLink,collectionSearchLink)+
- '<section class="sway-col-hero"><div class="sch-orb" aria-hidden="true"><i></i><i></i><i></i></div><small>Твоя музыка в Sway</small><h1>'+trackCount(items.length)+' с сердечком</h1><div class="sch-stats"><span><b>'+offlineTracks.size+'</b>скачано</span><span><b>'+(playlists.lists?.length||0)+'</b>плейлистов</span><span><b>'+preferredArtists.size+'</b>артистов</span></div><div class="collection-mix"><button class="mx-mix" type="button" data-action="play-collection"><small>Волна по коллекции</small><strong>'+icon('play')+'Слушать</strong></button></div></section>'+
- '<section class="collection-favorites"><a class="shelf-shortcut" href="#liked">'+coverStack(items,'/art/favorites.svg')+'<span><strong>Мне нравится '+icon('forward')+'</strong><small>'+trackCount(items.length)+'</small></span></a>'+
- (items.length?rows(items.slice(0,3),true):'<div class="shelf-empty">Сохраняй треки сердечком, и они появятся здесь. <a href="#discover">Найти музыку '+icon('forward')+'</a></div>')+'</section>'+
+ '<section class="sway-col-top"><a class="sct-liked" href="#liked"><span class="sct-art">'+coverStack(items,'/art/favorites.svg')+'</span><span class="sct-copy"><small>Твоя коллекция</small><strong>Мне нравится</strong><em>'+trackCount(items.length)+'</em></span>'+icon('forward')+'</a>'+
+ '<div class="sct-row"><button class="sct-wave" type="button" data-action="play-collection">'+icon('play')+'<span>Волна по коллекции</span></button>'+
+ '<a class="sct-chip" href="#library/offline">'+icon('download')+'<span>'+offlineTracks.size+'</span></a></div></section>'+
+ '<section class="collection-favorites">'+(items.length?rows(items.slice(0,3),true):'<div class="shelf-empty">Сохраняй треки сердечком, и они появятся здесь. <a href="#discover">Найти музыку '+icon('forward')+'</a></div>')+'</section>'+
  playlists.summary()+(items.length||preferredArtists.size?'<section class="collection-artists">'+titleLink('Любимые исполнители','#library/artists')+favoriteArtists()+'</section>':'')+
  '<section class="collection-more"><h2 class="shelf-title">Ещё у тебя в коллекции</h2><div class="collection-grid">'+grid.map(([href,label,note,glyph])=>'<a href="'+href+'"><span class="collection-cell-icon">'+(glyph==='favorites'?'<img src="/art/favorites.svg" alt="">':icon(glyph))+'</span><span>'+label+(note?'<small>'+note+'</small>':'')+'</span></a>').join('')+'</div></section></div>';
 }
@@ -1621,21 +1624,14 @@ function mobileFull(t){
 function trackWaveButton(t,title='Волна по треку'){
  return '<button class="mx-mix track-mix animated-radio" type="button" data-track="'+html(t.id)+'" data-action="track-wave"><span class="radio-light" aria-hidden="true"></span><small>'+title+'</small><strong>'+icon('play')+html(t.title)+'</strong></button>';
 }
-// «Встряхнуть»: confetti of Sway shapes bursts from the deck across the whole screen.
+// «Встряхнуть»: a thin, quick light runs once around the edges of the screen, so it is clear Моя волна switched.
 function shakeBurst(){
- document.querySelector('.sway-shake')?.remove();
- const layer=document.createElement('div');layer.className='sway-shake';layer.setAttribute('aria-hidden','true');
- const colors=['#ffef3a','#ff8a3d','#ff2a85','#7c5cff','#3ee0c5','#ffffff'];
- let shards='<b></b>';
- if(motionAllowed())for(let i=0;i<46;i++){
-  const angle=Math.random()*Math.PI*2,dist=180+Math.random()*420,size=8+Math.random()*22;
-  shards+='<i style="--c:'+colors[i%colors.length]+';--s:'+size.toFixed(0)+'px;--r:'+(i%3?'50%':i%2?'4px':'2px 14px')+';--x:'+(Math.cos(angle)*dist).toFixed(0)+'px;--yy:'+(Math.sin(angle)*dist-120).toFixed(0)+'px;--rot:'+(Math.random()*720-360).toFixed(0)+'deg;--d:'+(Math.random()*.12).toFixed(2)+'s"></i>';
- }
- layer.innerHTML=shards+'<span>Встряхиваем волну</span>';
- document.documentElement.append(layer);
- document.body.classList.remove('sway-shaking');void document.body.offsetWidth;document.body.classList.add('sway-shaking');
- navigator.vibrate?.([30,40,30]);
- setTimeout(()=>{layer.remove();document.body.classList.remove('sway-shaking');},1500);
+ document.querySelector('.sway-edge')?.remove();
+ navigator.vibrate?.([18,30,18]);
+ if(!motionAllowed())return;
+ const layer=document.createElement('div');layer.className='sway-edge';layer.setAttribute('aria-hidden','true');
+ layer.innerHTML='<i></i><i></i>';document.documentElement.append(layer);
+ setTimeout(()=>layer.remove(),1300);
 }
 function slideTrack(el,update,{direction=travel,distance=32,duration=350}={}){
  if(!el)return;
@@ -2283,7 +2279,8 @@ function startWave(key='',{first=null,explore=false,mix=null,start=true,mode='wa
  if(!order.length){notice(offlineOnly()?'В этой подборке нет скачанных треков.':'В этой подборке пока нет подходящих треков.');return;}
  // Catalog enrichment replaces track objects. Identity must follow the song ID,
  // otherwise a refreshed catalog can replay the current song when shaking.
- const opening=(first&&order.find(t=>t.id===first.id))||order.find(t=>t.id!==current?.id)||order[0];
+ const heard=new Set(current?artistCredits(current.artist):[]);
+ const opening=(first&&order.find(t=>t.id===first.id))||order.slice(0,12).find(t=>t.id!==current?.id&&!artistCredits(t.artist).some(name=>heard.has(name)))||order.find(t=>t.id!==current?.id)||order[0];
  waveMood=key;waveMix=mix;waveExplorer=explore;
  play(opening,[opening,...order.filter(t=>t.id!==opening.id)],mode,1,{start});return true;
 }

@@ -16,7 +16,7 @@ function checkRanking(){
  const choices=[...list,{id:'neighbor',artist:'Pulse',genre:'Beats',moods:['bright']}];
  assert.equal(deckRecommendations(choices,{likes:new Set(['seed'])})[0].id,'missed');
  assert.equal(deckRecommendations(choices,{likes:new Set(['unrelated'])})[0].id,'neighbor');
- assert.deepEqual(relatedMix(list,seed).slice(0,3).map(t=>t.id),['seed','missed','related']);
+ assert.deepEqual(relatedMix(list,seed).slice(0,3).map(t=>t.id),['missed','related'],'A related mix starts after its seed, never repeats it');
 }
 
 export async function checkWave(browser,origin,catalog){

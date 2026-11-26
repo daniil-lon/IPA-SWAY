@@ -6,7 +6,7 @@ export function transferableAsset(path){
  try{path=decodeURIComponent(path);}catch{return false;}
  return typeof path==='string'&&path.length<512&&!path.includes('..')&&!/[\\\u0000-\u001f?#]/.test(path)&&(
   path==='/admin-client.js'||/^\/(?!admin)[a-z][a-z0-9-]*\.(?:js|css|json|webmanifest)$/.test(path)&&path!=='/catalog.json'||
-  /^\/art\/[\p{L}\p{N}_./$() -]+\.(?:svg|png|jpe?g|webp|avif)$/u.test(path)
+  /^\/art\/[\p{L}\p{N}_./$() -]+\.(?:svg|png|jpe?g|webp|avif)$/u.test(path)||path==='/art/cutouts/index.json'
  );
 }
 export function transferableMedia(path){
