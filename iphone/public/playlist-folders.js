@@ -8,7 +8,7 @@ export function createPlaylistFolders({api,getUser,isOffline,html,icon,notice,on
  async function load(value){
   owner=value;folders=[];items=[];
   try{const data=JSON.parse(localStorage.getItem(key())||'{}');folders=(data.folders||[]).filter(f=>typeof f.id==='string'&&typeof f.name==='string').slice(0,50);items=(data.items||[]).filter(i=>typeof i.playlist==='string'&&folders.some(f=>f.id===i.folder)).slice(0,100);}catch{}
-  if(getUser()&&!isOffline())try{const data=await api('/api/playlist-folders');folders=data.folders;items=data.items;persist();}catch{notice('Папки не загрузились. Показана сохранённая копия.');}
+  if(getUser()&&!isOffline())try{const data=await api('/api/playlist-folders');folders=data.folders;items=data.items;persist();}catch{/* Quietly keep the saved copy: a toast over the header on every visit helps nobody. */}
  }
  function edit(folder){
   const layer=modal(folder?'Название папки':'Новая папка',`<form><label>Название<input name="name" maxlength="80" value="${html(folder?.name||'')}" required placeholder="Например, В дорогу"></label><button class="btn primary" type="submit">Сохранить</button></form>`);

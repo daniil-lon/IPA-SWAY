@@ -5,18 +5,18 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-91VzNjz8tKSZs2bXNlFwKWTxYFKOlqTxyJL7cbT78BE=' 'sha256-QNrX4ZJAq08mIEb5UtmykIWm+V/gB3jbASATR4lOtBo=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-5yOhYg1ijViFD4Y9X/LlMQTj5+nK+gyvnSKjcgrJMfs=' 'sha256-k5f77URMLlCCOxNsZhp/L/11/JTpsxIfQPDi7zimWk4=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
 /media/*
   Cache-Control: public, max-age=86400
 # sway:integrity:start
 /admin-client.js
   X-Sway-Size: 6857
 /app-bundle.js
-  X-Sway-Size: 694664
+  X-Sway-Size: 698130
 /app.js
-  X-Sway-Size: 265185
+  X-Sway-Size: 265237
 /asset-loader.js
-  X-Sway-Size: 7626
+  X-Sway-Size: 8638
 /audio-transition.js
   X-Sway-Size: 9318
 /boot.js
@@ -80,7 +80,7 @@
 /player.css
   X-Sway-Size: 18765
 /playlist-folders.js
-  X-Sway-Size: 5871
+  X-Sway-Size: 5856
 /playlist-match.js
   X-Sway-Size: 2003
 /playlists.js
@@ -116,7 +116,7 @@
 /sway-reference.css
   X-Sway-Size: 24686
 /sway.css
-  X-Sway-Size: 259668
+  X-Sway-Size: 267264
 /system-media.js
   X-Sway-Size: 4531
 /taste-ui.js
@@ -128,7 +128,7 @@
 /track-report.js
   X-Sway-Size: 2329
 /ui-polish.css
-  X-Sway-Size: 8047
+  X-Sway-Size: 16399
 /wave-deck.js
   X-Sway-Size: 10393
 /wave-filters.js
@@ -149,5 +149,5 @@
 # sway:worker:start
 /sw.js
   Cache-Control: public, max-age=0, must-revalidate, no-transform
-  X-Sway-Size: 14518
+  X-Sway-Size: 15046
 # sway:worker:end

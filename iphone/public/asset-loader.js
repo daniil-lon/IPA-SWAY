@@ -1,10 +1,25 @@
 const partSize=8192,maxSize=32*1024*1024;
 const state=globalThis.__swayTransferState??={interrupted:false,socketMode:false};
-try{const saved=JSON.parse(sessionStorage.getItem('sway-transfer')||'null');if(saved&&Date.now()-saved.at<1800000)Object.assign(state,{interrupted:true,socketMode:!!saved.socketMode});}catch{}
+// Networks that cut long Cloudflare responses (often home Wi-Fi in Russia) are remembered across
+// launches, so the app goes straight to small parts instead of waiting for timeouts every start.
+// A background probe forgets the mark once full responses get through again.
+const REMEMBER_MS=3*24*3600000;
+const readMark=store=>{try{const saved=JSON.parse(store.getItem('sway-transfer')||'null');return saved&&Date.now()-saved.at<REMEMBER_MS?saved:null;}catch{return null;}};
+const remembered=(()=>{try{return readMark(localStorage)||readMark(sessionStorage);}catch{return null;}})();
+if(remembered)Object.assign(state,{interrupted:true,socketMode:!!remembered.socketMode});
+if(remembered&&typeof window==='object'&&!state.probing){
+ state.probing=true;
+ setTimeout(async()=>{
+  try{
+   const response=await completeFetch(new Request('/track-languages.json?probe='+Date.now(),{cache:'no-store'}));
+   if(response.ok&&(await response.arrayBuffer()).byteLength>20000){state.interrupted=false;state.socketMode=false;try{localStorage.removeItem('sway-transfer');sessionStorage.removeItem('sway-transfer');}catch{}}
+  }catch{}
+ },6000);
+}
 export const interruptedConnection=()=>state.interrupted;
 export function markInterruptedConnection(socket=false){
  state.interrupted=true;state.socketMode||=socket;
- try{sessionStorage.setItem('sway-transfer',JSON.stringify({at:Date.now(),socketMode:state.socketMode}));}catch{}
+ const mark=JSON.stringify({at:Date.now(),socketMode:state.socketMode});try{localStorage.setItem('sway-transfer',mark);}catch{}try{sessionStorage.setItem('sway-transfer',mark);}catch{}
 }
 const lanes={asset:{active:0,max:4,waiting:[]},media:{active:0,max:8,waiting:[]}};
 async function slot(task,kind,signal){

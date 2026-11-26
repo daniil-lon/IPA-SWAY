@@ -93,3 +93,75 @@ body[data-maintenance] #main{padding-top:68px}
 @keyframes swayBannerIn{from{opacity:0;translate:-50% -14px}}
 @keyframes swayGear{to{rotate:360deg}}
 @media(prefers-reduced-motion:reduce){.maintenance-banner,.maintenance-banner .mb-icon svg{animation:none}}
+
+/* Wave bar: one flat compositing layer, clipped by a mask (iOS left stray tiles from backdrop blur + animated ghosts) */
+.mx-wave .mx-wave-bar,.mx-wave[data-playing] .mx-wave-bar{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.mx-wave .mx-pill{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.mx-wave .mx-track-control{overflow:hidden;border-radius:99px;contain:paint;transform:translateZ(0);-webkit-mask-image:-webkit-radial-gradient(white,black)}
+.mx-wave .mx-track{isolation:auto;contain:paint}
+.mx-wave .mx-track .track-ghost{display:none!important}
+.mx-wave[data-playing] .mx-track::before{border-radius:99px 0 0 99px;will-change:auto;transition:none}
+.mx-wave .mx-wave-progress{overflow:hidden}
+
+/* Station deck: a flat, evenly spaced shelf that scrolls like a normal list. No 3D turn, no gaps from rotation. */
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item:not([hidden])~.wave-deck-item:not([hidden]){margin-inline-start:8px!important}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button{transform:translateY(calc(-1 * var(--deck-raise,0px)))!important;opacity:1!important;transition:transform .25s cubic-bezier(.2,.8,.2,1),scale .18s ease!important}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button::before{filter:saturate(.9) brightness(.96)!important}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-centered] .wave-deck-button::before{filter:saturate(1) brightness(1.04)!important}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck{mask-image:linear-gradient(90deg,transparent,#000 4% 96%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 4% 96%,transparent)}
+/* «Привычное» и «Встряхнуть»: two narrow glass tiles with a readable caption under the icon. */
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut]{flex-basis:calc((100% - var(--deck-card)) / 4 - 9px)!important;min-width:0}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button{display:flex!important;flex-direction:column;justify-content:center;gap:9px;border-radius:16px;background:color-mix(in srgb,#fff 10%,transparent)!important;box-shadow:inset 0 0 0 1px #ffffff1c!important;padding:0 4px!important}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-glyph{width:40px!important;height:40px!important;padding:10px!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-item=shake] .wave-deck-glyph{background:linear-gradient(140deg,#ffef3a,#ff8a3d)!important;color:#1a1206!important}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button::after{font-size:10px!important;font-weight:650!important;letter-spacing:-.02em;white-space:nowrap}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button:active{scale:.93}
+
+/* «Встряхнуть»: full-screen burst in Sway colours */
+.sway-shake{position:fixed;inset:0;z-index:2147482000;pointer-events:none;overflow:hidden}
+.sway-shake i{position:absolute;left:50%;top:var(--y,62%);width:var(--s,18px);height:var(--s,18px);border-radius:var(--r,50%);background:var(--c);opacity:0;translate:-50% -50%;animation:swayShard 1.15s cubic-bezier(.15,.75,.25,1) var(--d,0s) forwards}
+.sway-shake b{position:absolute;inset:0;background:radial-gradient(circle at 50% 62%,#ffef3a55,transparent 55%);opacity:0;animation:swayFlash .9s ease-out forwards}
+.sway-shake span{position:absolute;left:50%;top:44%;translate:-50% -50%;padding:12px 20px;border-radius:99px;background:#0d0d10cc;color:#ffef3a;font:800 18px/1 system-ui,sans-serif;letter-spacing:-.01em;white-space:nowrap;opacity:0;animation:swayShakeLabel 1.3s cubic-bezier(.2,.9,.3,1.2) forwards}
+@keyframes swayShard{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.4)}70%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--yy)) rotate(var(--rot)) scale(1)}}
+@keyframes swayFlash{30%{opacity:1}100%{opacity:0}}
+@keyframes swayShakeLabel{0%{opacity:0;scale:.6}25%{opacity:1;scale:1.06}40%{scale:1}80%{opacity:1}100%{opacity:0;scale:.96}}
+body.sway-shaking #main{animation:swayWobble .55s cubic-bezier(.36,.07,.19,.97)}
+@keyframes swayWobble{15%{transform:translateX(-9px) rotate(-1deg)}30%{transform:translateX(8px) rotate(1deg)}45%{transform:translateX(-6px) rotate(-.6deg)}60%{transform:translateX(4px)}75%{transform:translateX(-2px)}}
+@media(prefers-reduced-motion:reduce){.sway-shake i,body.sway-shaking #main{animation:none}}
+
+/* «Коллекция»: Sway hero instead of the yellow pill */
+.collection-view .sway-col-hero{position:relative;overflow:hidden;margin:6px 0 18px;padding:20px 18px 16px;border-radius:26px;border:1px solid #ffffff14;background:linear-gradient(150deg,#2a1640 0%,#1a1030 45%,#101018 100%)}
+.sch-orb{position:absolute;top:-90px;right:-80px;width:260px;height:260px;pointer-events:none;filter:blur(30px);opacity:.85}
+.sch-orb i{position:absolute;border-radius:50%;mix-blend-mode:screen}
+.sch-orb i:nth-child(1){inset:20% 30% 30% 10%;background:#ff2a85}
+.sch-orb i:nth-child(2){inset:40% 5% 10% 40%;background:#7c5cff}
+.sch-orb i:nth-child(3){inset:5% 20% 55% 45%;background:#ffef3a;opacity:.7}
+.sway-col-hero>:not(.sch-orb){position:relative}
+.sway-col-hero small{display:block}
+.sway-col-hero small{color:#d9cfee;font-size:12.5px;font-weight:600}
+.sway-col-hero h1{margin:4px 0 12px;font-size:26px;line-height:1.1;font-weight:820;letter-spacing:-.025em}
+.sch-stats{display:flex;gap:8px;margin-bottom:14px}
+.sch-stats span{flex:1;display:grid;gap:1px;padding:9px 10px;border-radius:14px;background:#ffffff10;color:#c9c0da;font-size:11.5px}
+.sch-stats b{color:#fff;font-size:18px;font-weight:780}
+.sway-col-hero .collection-mix{margin:0;padding:0}
+.sway-col-hero .collection-mix .mx-mix{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:52px;padding:0 8px 0 16px;border-radius:99px;background:#fff;color:#14101c;box-shadow:none}
+.sway-col-hero .collection-mix .mx-mix small{order:0;color:#5b5368;font-size:13px;font-weight:650;opacity:1}
+.sway-col-hero .collection-mix .mx-mix strong{order:1;display:flex;align-items:center;gap:6px;padding:9px 16px;border-radius:99px;background:linear-gradient(135deg,#ff2a85,#7c5cff);color:#fff;font-size:15px}
+.sway-col-hero .collection-mix .mx-mix strong svg{width:16px;height:16px}
+.sway-col-hero .collection-mix .mx-mix::before,.sway-col-hero .collection-mix .mx-mix::after{content:none!important}
+.collection-view .collection-grid a{border-radius:18px;background:#ffffff09;border:1px solid #ffffff0f}
+.collection-view .collection-cell-icon{border-radius:14px!important;background:linear-gradient(145deg,#ff2a8533,#7c5cff33)!important;color:#fff}
+.sway-col-hero .mx-mix *{text-shadow:none!important}
+
+/* Wave hero with a cutout: the singer stands in front of their name, the photo becomes a glow. */
+.mx-wave .mx-live .mx-artist-cut{position:absolute;left:50%;bottom:calc(var(--wave-cover)*.12);translate:-50% 0;height:min(78%,440px);max-width:96vw;width:auto;object-fit:contain;object-position:50% 100%;z-index:1;pointer-events:none;filter:drop-shadow(0 18px 34px #0007);-webkit-mask-image:linear-gradient(#000 72%,transparent 99%);mask-image:linear-gradient(#000 72%,transparent 99%);animation:mxCutIn .55s cubic-bezier(.2,.8,.2,1) both}
+.mx-wave .mx-live .mx-artist-cut[hidden]{display:none}
+.mx-wave .mx-live[data-cutout] .mx-artist-photo{width:min(96vw,420px);opacity:.5;filter:blur(28px) saturate(1.3);-webkit-mask-image:radial-gradient(closest-side,#000 40%,transparent);mask-image:radial-gradient(closest-side,#000 40%,transparent)}
+.mx-wave .mx-live[data-cutout] .mx-title-slot{z-index:0}
+.mx-wave .mx-live[data-cutout] .mx-title-slot h1{color:#fff;opacity:.96}
+.mx-wave .mx-live .mx-art{z-index:3}
+@keyframes mxCutIn{from{opacity:0;transform:translateY(18px) scale(.97)}}
+@media(prefers-reduced-motion:reduce){.mx-wave .mx-live .mx-artist-cut{animation:none}}
+.mx-wave .mx-live[data-cutout]{isolation:isolate}
+.mx-wave .mx-live[data-cutout] .mx-artist-photo{z-index:-1;opacity:.38}
+.mx-wave .mx-live .mx-artist-cut{transform:translateZ(0);height:min(74%,420px);max-width:92vw}

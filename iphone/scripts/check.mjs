@@ -102,8 +102,10 @@ try{
   await p.goto(origin+'/#library');
   assert.equal(await p.locator('[data-row]').getAttribute('data-row'),catalog[0].id);
   if(name==='mobile'){
-   await near('.collection-mix .mx-mix',{x:16,y:48,width:361,height:64});
-   await near('.collection-favorites .shelf-shortcut',{x:16,y:163,width:361,height:64});
+   // Sway collection hero (stats + play), then the liked shortcut below it.
+   await near('.sway-col-hero',{x:16,y:54,width:361});
+   await near('.collection-mix .mx-mix',{width:323,height:64});
+   await near('.collection-favorites .shelf-shortcut',{x:16,width:361,height:64});
    await p.screenshot({path:'artifacts/mobile-library.png'});
    await p.locator('[data-info-track]').click();
    assert.equal(await p.locator('#sheet .mx-info-top h2').textContent(),catalog[0].title);
