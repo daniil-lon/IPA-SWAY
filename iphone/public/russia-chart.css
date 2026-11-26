@@ -1,0 +1,34 @@
+.ru-shelf{margin:34px 0 30px}
+.ru-shelf .title-link{display:inline-flex;align-items:center;gap:5px;font-size:22px;font-weight:780;letter-spacing:-.045em;color:#fff;text-decoration:none;margin:0 0 14px}
+.ru-shelf .title-link svg{width:18px;height:18px;color:var(--shelf-muted)}
+.ru-rail{display:flex;gap:13px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-inline:contain;margin-inline:calc(-1 * var(--shelf-gutter));padding:0 var(--shelf-gutter);scroll-padding-inline:var(--shelf-gutter)}
+.ru-rail::-webkit-scrollbar{display:none}
+.ru-card{flex:0 0 36%;min-width:124px;max-width:190px;display:grid;gap:3px;color:#fff;text-decoration:none;scroll-snap-align:start}
+.ru-card-art{position:relative;display:block;border-radius:14px;overflow:hidden;background:#1b1b1e;aspect-ratio:1}
+.ru-card-art img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s ease}
+.ru-card:hover .ru-card-art img{transform:scale(1.04)}
+.ru-card-art b{position:absolute;left:8px;bottom:6px;font-size:30px;font-weight:850;line-height:1;letter-spacing:-.06em;color:#fff;text-shadow:0 2px 12px #000a}
+.ru-card strong{font-size:13px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ru-card small{font-size:11px;color:var(--shelf-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ru-hero{margin:14px 0 18px;padding:22px 18px;border-radius:20px;background:radial-gradient(120% 140% at 0% 0%,#d52b1e55,transparent 60%),radial-gradient(120% 140% at 100% 100%,#0039a655,transparent 60%),#141417}
+.ru-hero h1{margin:0;font-size:30px;font-weight:850;letter-spacing:-.05em}
+.ru-hero p{margin:6px 0 0;color:var(--shelf-muted);font-size:14px}
+.ru-hero .ru-note{color:#d6d4d8;font-size:13px}
+.ru-list{display:grid;gap:2px}
+.ru-row{display:grid;grid-template-columns:26px 54px minmax(0,1fr) 44px;align-items:center;gap:11px;padding:7px 0;border-radius:10px}
+.ru-rank{font-size:15px;font-weight:700;color:var(--shelf-muted);text-align:center}
+.ru-art{width:54px;height:54px;border-radius:8px;overflow:hidden;background:#1b1b1e}
+.ru-art img{width:100%;height:100%;object-fit:cover;display:block}
+.ru-meta{min-width:0;display:grid;gap:2px}
+.ru-meta strong{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ru-meta small{font-size:13px;color:var(--shelf-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ru-links{display:flex;flex-wrap:nowrap;overflow:hidden;gap:6px;margin-top:4px}
+.ru-links a,.ru-full{flex:none;white-space:nowrap;font-size:11px;line-height:1;padding:5px 8px;border-radius:99px;border:1px solid #ffffff24;color:#d6d4d8;text-decoration:none;background:none}
+.ru-full{display:inline-flex;align-items:center;gap:4px;border-color:transparent;background:var(--shelf-accent);color:#000;font-weight:700;cursor:pointer}
+.ru-full svg{width:10px;height:10px}
+.ru-links a:hover{border-color:#fff6;color:#fff}
+.ru-preview{width:40px;height:40px;border-radius:50%;border:0;display:grid;place-items:center;background:#ffffff14;color:#fff;cursor:pointer;transition:background .2s ease,transform .2s ease}
+.ru-preview svg{width:17px;height:17px}
+.ru-preview:active{transform:scale(.92)}
+.ru-preview.playing{background:var(--shelf-accent);color:#000}
+@media (prefers-reduced-motion:reduce){.ru-card-art img,.ru-preview{transition:none}}

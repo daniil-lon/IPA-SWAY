@@ -58,8 +58,15 @@ try{
    // Metadata can replace the home canvas after the first ready event. Wait
    // for the current surface to paint, including its static reduced-motion frame.
    await page.waitForFunction(()=>{const c=document.querySelector('.wave-light[data-ready]');return c?.width&&c.height&&c.getContext('2d').getImageData(Math.floor(c.width/2),c.height-2,1,1).data[3]===255;});
-   const atmosphere=await page.locator('.wave-light[data-ready]').evaluate(c=>({height:c.clientHeight,viewport:innerHeight,bottom:[...c.getContext('2d').getImageData(Math.floor(c.width/2),c.height-2,1,1).data]}));
-   assert.equal(atmosphere.height,viewport.height);assert.equal(atmosphere.bottom[3],255);assert.ok(Math.max(...atmosphere.bottom.slice(0,3))<=12,'Atmosphere fades continuously into the navigation background');
+   // The atmosphere keeps the song's colour down to the bottom (no black band) and must meet
+   // the surface painted behind the navigation without a visible seam.
+   const atmosphere=await page.locator('.wave-light[data-ready]').evaluate(c=>{
+    const probe=document.createElement('i');probe.style.color=getComputedStyle(document.documentElement).getPropertyValue('--system-surface');document.body.append(probe);
+    const surface=getComputedStyle(probe).color.match(/\d+/g).slice(0,3).map(Number);probe.remove();
+    return {height:c.clientHeight,viewport:innerHeight,surface,bottom:[...c.getContext('2d').getImageData(Math.floor(c.width/2),c.height-2,1,1).data]};
+   });
+   assert.equal(atmosphere.height,viewport.height);assert.equal(atmosphere.bottom[3],255);
+   assert.ok(atmosphere.bottom.slice(0,3).every((v,i)=>Math.abs(v-atmosphere.surface[i])<=14),'Atmosphere fades continuously into the navigation background: '+JSON.stringify(atmosphere));
    await page.screenshot({path:`${out}/after-home-${label}.png`,scale:'css'});
    await page.locator('.mx-start').click();await page.waitForFunction(()=>document.querySelector('#audio').currentTime>.2);await page.waitForTimeout(750);
    await page.screenshot({path:`${out}/after-playing-${label}.png`,scale:'css'});

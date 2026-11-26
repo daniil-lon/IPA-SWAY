@@ -21,6 +21,7 @@ import {
 import {yandexPortraitId} from './yandex-avatar.mjs';
 import {normalizeWaveMark} from './public/wave-mark.js';
 import {readChart,recordChartListen} from './chart-store.mjs';
+import {russiaChart} from './russia-chart.mjs';
 import {communitySignals,collectionReaction,clearCommunityCache} from './community-store.mjs';
 import {readTaste,writeTaste} from './taste-store.mjs';
 import {playlistRoute} from './playlist-store.mjs';
@@ -355,6 +356,7 @@ export default {async fetch(req,env,ctx){
   if(path==='/api/chart' && method==='GET'){
    return json({items:chartItems});
   }
+  if(path==='/api/russia-chart' && method==='GET')return await russiaChart(url,ctx);
   if(path==='/api/catalog-signals'&&method==='GET'){
    if(loginRequired(env)&&!await identity(req,env))return json({error:'login_required'},401);
    return communitySignals(env.DB,await applyCatalogOverrides(env.DB,[...await catalogTracks(env,req),...await getCustomTracks(env)]));

@@ -33,6 +33,7 @@ import {createPlaybackMetrics} from './playback-metrics.js';
 import {createTrackReporter} from './track-report.js';
 import {matchPlaylist,parseTrackList} from './playlist-match.js';
 import {mountRowGestures} from './row-gestures.js';
+import {createRussiaChart} from './russia-chart.js';
 // Promo attribution: remember the first ?src= label (tg_post, tg_story, tg_bot…), count one visit per
 // session and one install. iOS gives home-screen apps their own storage, so installs count as «installed».
 {
@@ -259,6 +260,8 @@ const art=t=>'<img src="'+html(t.art)+'" alt="">';
 const download=t=>canDownload(t)?button(offlineTracks.has(t.id)?'check':'download',offlineTracks.has(t.id)?'Удалить из скачанного: '+t.title:'Скачать в Sway: '+t.title,'data-offline-toggle="'+html(t.id)+'"'+(offlineJobs.has(t.id)||!offlineTracks.has(t.id)&&(offlineOnly()||navigator.onLine===false)?' disabled':''),'icon offline-toggle'+(offlineTracks.has(t.id)?' saved':'')):'';
 const row=(t,compact=false)=>'<article class="row" data-row="'+t.id+'"><button class="row-track" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'"><span class="row-art">'+art(t)+'</span><div><strong>'+html(t.title)+(t.isExplicit?' <span class="badge-e" aria-label="Explicit" title="Ненормативная лексика">E</span>':'')+'</strong><small>'+html(t.artist)+(t.provider?' <span class="source-tag">Commons</span>':'')+'</small></div></button><div class="row-actions"><small>'+time(t.seconds)+'</small>'+(compact?button('more','Действия с треком «'+t.title+'»','data-info-track="'+t.id+'"'):button('heart','Мне нравится','data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"')+playlists.quickButton(t,button)+button('plus','Добавить в очередь','data-add="'+t.id+'"'))+'</div></article>';
 const rows=(items,compact=false)=>items.length?'<div class="rows">'+items.map(t=>row(t,compact)).join('')+'</div>':'<div class="panel"><p class="quiet">Здесь пока нет треков.</p></div>';
+const russiaChart=createRussiaChart({html,icon,getTracks:()=>tracks,isOffline:()=>offlineOnly()||navigator.onLine===false,onChange:()=>{if(page==='discover'&&[undefined,'russia'].includes(location.hash.split('/')[1]))renderWhenIdle();},onPlay:id=>{const t=map.get(id);if(t)play(t,[t],'track');},onPreviewStart:()=>{if(playing)pausePlayback();}});
+for(const element of audioElements)element.addEventListener('play',()=>russiaChart.stop());
 const playlists=createPlaylists({api,icon,html,getTracks:()=>[...map.values()],getUser:()=>user,isOffline:()=>offlineOnly()||navigator.onLine===false,onChange:()=>{if(page==='library')render();},onPlay:(ids,name)=>{const items=tracksFrom(ids);if(items.length){play(items[0],items,'playlist');if(name)queueSource=name;}},rows,header:(title,href)=>shelfHeader(title,backLink(href)),notice,reactionButton});
 const card=t=>'<article class="track-card"><button class="card-art" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'">'+art(t)+icon('play')+'</button><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></article>';
 const head=(label,title,desc)=>'<header class="page-head"><div class="kicker">'+label+'</div><h1>'+title+'</h1><p>'+desc+'</p></header>';
@@ -506,7 +509,7 @@ function openSleepTimerSheet() {
 }
 
 function mobileHome(){
- const t=current||tracks[0];if(!t)return '';
+ const t=lastHeard();if(!t)return '';
  const front=waveArtist(t);
  return '<section id="mx-wave-root" class="mx-wave" data-track="'+t.id+'" data-playing="'+(playing||starting)+'"><div class="mx-wave-atmosphere" aria-hidden="true"><div class="mx-wave-surface is-current"></div><div class="mx-wave-surface"></div><div class="wave-bloom"><span></span><span></span><span></span></div>'+waveCanvas+'</div>'+
  navHeader('<span data-wave-heading><span class="mx-wave-caption">Моя волна</span></span>'+waveSelection(),profileLink,searchLink)+
@@ -1080,6 +1083,8 @@ function mobileSearch(){
 }
 const trackCount=n=>n+' '+(n%10===1&&n%100!==11?'трек':n%10>=2&&n%10<=4&&!(n%100>=12&&n%100<=14)?'трека':'треков');
 const recentItems=()=>tracksFrom(recentTracks);
+// Before anything plays, the wave takes its colours from the song heard last, not the first catalog entry.
+function lastHeard(){return current||recentItems()[0]||tracks[0];}
 const categoryTabs=[['trends','Тренды'],['genres','Жанры'],['releases','Новинки']];
 const shelfHeader=(title,left='',right=searchLink)=>'<header class="mx-head shelf-header"><span>'+left+'</span><h1>'+title+'</h1><span>'+right+'</span></header>';
 const titleLink=(title,href)=>'<h2 class="shelf-title"><a href="'+href+'">'+title+icon('forward')+'</a></h2>';
@@ -1239,6 +1244,7 @@ function switchDiscoverMix(newTab){
 function discoverView(section='',genre=''){
  if(section==='chart')return chartView();
  if(section==='trends')return trendsView();
+ if(section==='russia')return russiaChart.view(shelfHeader('Чарт России',backLink('#discover')));
  if(section==='artists'){const {hot,groups}=catalogArtists();return '<div class="browse-view">'+shelfHeader(hot?'Популярные артисты':'Исполнители каталога',backLink('#discover'))+artistShelf(groups,true)+'</div>';}
  const title=categoryTabs.find(([key])=>key===section)?.[1];
  if(title){
@@ -1252,6 +1258,7 @@ function discoverView(section='',genre=''){
  return '<div class="browse-view discover-view">'+shelfHeader('Что послушать')+'<a class="discover-search" href="#search">'+icon('search')+'<span>Трек, исполнитель или альбом</span>'+icon('forward')+'</a><nav class="catalog-icons" aria-label="Категории">'+categoryTabs.map(([id,label])=>'<a href="#discover/'+id+'">'+browseIcon(id)+'<span>'+label+'</span></a>').join('')+'</nav>'+
  '<div class="shelf-shortcuts">'+shortcut('#liked','Мне нравится',trackCount(saved.length),saved,'/art/favorites.svg')+shortcut('#history','История',recent[0]?.artist||'Недавние треки',recent,'/art/history.svg')+'</div>'+
  '<section class="discover-callout"><div><h2>Музыка<br>в твоём ритме</h2><p>Моя волна — по твоим вкусам и настроению</p><button class="discover-cta" type="button" data-action="start-personal">'+icon('play')+'Слушать волну</button></div><img src="/art/catalog-feature.svg" alt="" loading="lazy"></section>'+
+ russiaChart.shelf()+
  '<section id="discover-mixes" class="shelf-mixes">'+catalogMixes()+'</section>'+
  '<section class="shelf-artists-section" id="discovery-artists">'+discoverArtistShelf()+'</section>'+
  (debut.length?'<section class="shelf-releases">'+titleLink('Новое в каталоге','#discover/releases')+'<div class="shelf-release-rail">'+debut.map(t=>'<button class="shelf-release" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'">'+art(t)+'<strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></button>').join('')+'</div></section>':'')+'</div>';
@@ -1484,11 +1491,11 @@ function fitWaveTitle(title=document.querySelector('#mobile-wave-title')){
  if(textWidth>width)title.style.fontSize=Math.floor(parseFloat(style.fontSize)*width/textWidth)+'px';
 }
 function refreshMobileWave(decoded=false){
- const root=$('#mx-wave-root'),t=current||tracks[0];if(!root||!t)return;
+ const root=$('#mx-wave-root'),t=lastHeard();if(!root||!t)return;
  if(root.dataset.track!==t.id&&!decoded){
   const cover=prepareArtwork(t.art);
   if(!cover.loaded){
-   if(root.dataset.pendingTrack!==t.id){root.dataset.pendingTrack=t.id;Promise.race([cover.promise,new Promise(resolve=>setTimeout(resolve,650))]).then(()=>{if(root.isConnected&&(current||tracks[0])?.id===t.id){delete root.dataset.pendingTrack;refreshMobileWave(true);}});}
+   if(root.dataset.pendingTrack!==t.id){root.dataset.pendingTrack=t.id;Promise.race([cover.promise,new Promise(resolve=>setTimeout(resolve,650))]).then(()=>{if(root.isConnected&&(lastHeard())?.id===t.id){delete root.dataset.pendingTrack;refreshMobileWave(true);}});}
    return;
   }
  }
@@ -1872,8 +1879,8 @@ function render(){
   deckLifetime=new AbortController();const {signal}=deckLifetime;
   fitWaveTitle();window.addEventListener('resize',()=>fitWaveTitle(),{signal});
   document.fonts.ready.then(()=>{if(!signal.aborted)fitWaveTitle();});
-  deckUI=mountWaveDeck(frame,{initial:waveDeckSlot,initialKey:waveDeckKey,maker:deckCard,onCenter:(slot,key)=>{waveDeckSlot=slot;waveDeckKey=key;},onTouchCenter:()=>pulse('tick'),signal});
-  waveLight=mountWaveLight($('.wave-light'),{track:waveVisual(current||tracks[0]),getAudio:()=>audio,playing:playing||starting,started:!!current,motion:prefs.motion,pattern:'bloom',signal});
+  deckUI=mountWaveDeck(frame,{initial:waveDeckSlot,initialKey:waveDeckKey,maker:deckCard,size:()=>waveDeckChoices().length,onCenter:(slot,key)=>{waveDeckSlot=slot;waveDeckKey=key;},onTouchCenter:()=>pulse('tick'),signal});
+  waveLight=mountWaveLight($('.wave-light'),{track:waveVisual(lastHeard()),getAudio:()=>audio,playing:playing||starting,started:!!current,motion:prefs.motion,pattern:'bloom',signal});
   if(selectedMixKey())deckUI.visibility(closestDeckSlot(selectedMixKey()),selectedMixKey(),false);
  }
  renderPromo();
@@ -1889,7 +1896,7 @@ function apply(){
 function syncChrome(){
  waveLight?.setCovered(dialog.open&&dialog.dataset.view==='full');
  const visible=dialog.open?dialog.querySelector('.full-player'):$('#mx-wave-root');
- const t=map.get(visible?.dataset.coverTrack||visible?.dataset.track)||current||tracks[0];
+ const t=map.get(visible?.dataset.coverTrack||visible?.dataset.track)||lastHeard();
  const surface=dialog.open?playerSurface(t):page==='home'?waveSurface(waveVisual(t)):'#0b0e14';
  const root=document.documentElement;
  if(root.style.getPropertyValue('--system-surface')!==surface){root.style.setProperty('--system-surface',surface);document.querySelector('meta[name=theme-color]')?.setAttribute('content',surface);}
@@ -1902,8 +1909,8 @@ function syncPlaybackWait(){
 }
 function sync(){
  syncChrome();persistQueue();
- document.body.classList.toggle('has-track',!!current);setCoverColors(document.body,current||tracks[0]);refreshMobileWave();syncWaveSelection();
- if(page!=='home')waveLight?.setTrack(current||tracks[0]);waveLight?.setPlaying(playing||starting);
+ document.body.classList.toggle('has-track',!!current);setCoverColors(document.body,lastHeard());refreshMobileWave();syncWaveSelection();
+ if(page!=='home')waveLight?.setTrack(lastHeard());waveLight?.setPlaying(playing||starting);
  $('#now-title').textContent=current?.title||'Sway';$('#now-artist').textContent=current?.artist||'Выберите трек';
  if($('#now-art').getAttribute('src')!==(current?.art||'/art/logo.svg'))$('#now-art').src=current?.art||'/art/logo.svg';
  const toggle=$('#toggle'), toggleIcon=intendsPlayback()?'pause':'play', toggleLabel=intendsPlayback()?'Пауза':'Воспроизвести';
@@ -2545,6 +2552,7 @@ async function endAccount(remove,btn){
 document.addEventListener('click',e=>{
  const reportButton=e.target.closest('[data-track-report]');
  if(reportButton){const track=map.get(reportButton.dataset.trackReport);if(track){sheet.close();reportTrack(track);}return;}
+ if(russiaChart.handle(e.target))return;
  if(e.target.closest('a[href="/auth/yandex"]')&&/^#u\/[a-z0-9_]{3,24}$/.test(location.hash)){
   try{sessionStorage.setItem('sway.after-login',location.hash);}catch{}
  }

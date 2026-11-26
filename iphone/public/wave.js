@@ -37,7 +37,8 @@ export function rankWave(catalog,{likes=new Set(),history=[],preferredGenres=new
  }).sort((a,b)=>b.score-a.score);
  const result=[];
  while(remaining.length){
-  const last=result.at(-1), next=remaining.findIndex(({t,score})=>t.artist!==last?.artist&&score>remaining[0].score-.75);
+  // Space artists out: neither of the last two songs may share the next one's artist while a close alternative exists.
+  const recent=result.slice(-2).map(t=>t.artist), next=remaining.findIndex(({t,score})=>!recent.includes(t.artist)&&score>remaining[0].score-.75);
   result.push(remaining.splice(Math.max(0,next),1)[0].t);
  }
  return result;

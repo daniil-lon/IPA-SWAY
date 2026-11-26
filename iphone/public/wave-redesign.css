@@ -1,0 +1,88 @@
+/* Home wave, November redesign. Loaded last on purpose: earlier sheets stack several
+   generations of the deck, and these rules replace their shape rather than patch it. */
+
+/* No black anywhere: the screen takes the song's colour and the canvas fills it top to bottom. */
+body[data-page=home] .mx-wave{background:var(--system-surface,var(--wave-surface,#1e2838))}
+body[data-page=home] .mx-wave .mx-wave-atmosphere{background:none;mask-image:none;-webkit-mask-image:none}
+body[data-page=home] .mx-wave .mx-wave-atmosphere .wave-light{height:100%;filter:blur(1.4px);mask-image:none;-webkit-mask-image:none}
+
+/* A frosted band behind the stations instead of a dark strip. */
+body[data-page=home] .mx-wave .wave-deck-frame{isolation:isolate;background:none}
+body[data-page=home] .mx-wave .wave-deck-frame::before{content:"";position:absolute;z-index:0;inset:-34px 0 calc(-1 * (env(safe-area-inset-bottom) + 96px));pointer-events:none;
+ background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--system-surface,#1e2838) 46%,transparent) 42%,color-mix(in srgb,var(--system-surface,#1e2838) 70%,transparent));
+ -webkit-backdrop-filter:blur(22px) saturate(1.35);backdrop-filter:blur(22px) saturate(1.35);
+ -webkit-mask-image:linear-gradient(transparent,#000 34%);mask-image:linear-gradient(transparent,#000 34%)}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck{position:relative;z-index:1;padding-block:16px 0;mask-image:linear-gradient(90deg,transparent,#000 5% 95%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 5% 95%,transparent)}
+
+/* Station tiles in a 3D carousel: the centred card faces the listener, its neighbours turn
+   towards it like a stack of covers. --deck-distance is written by wave-deck.js every frame. */
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item{padding-top:6px}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item:not([hidden])~.wave-deck-item:not([hidden]){margin-inline-start:6px}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button{
+ --turn:clamp(-1.25,var(--deck-distance,0),1.25);
+ width:100%;height:calc(var(--deck-height) - 30px);margin:0;padding:14px 14px 15px!important;
+ display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:3px;text-align:left;
+ border-radius:20px;overflow:visible;backface-visibility:hidden;
+ opacity:calc(1 - var(--deck-weight,.8) * .3);
+ transform-origin:50% 55%;
+ transform:perspective(720px) translateX(calc(var(--turn) * -16%)) translateY(calc(-1 * var(--deck-raise,0px))) rotateY(calc(var(--turn) * -38deg)) scale(calc(1 - var(--deck-weight,.8) * .1));
+ transition:scale .18s cubic-bezier(.3,.7,.4,1.4)}
+/* The turned side of a card darkens a little, which sells the depth without extra layers. */
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button::before{filter:brightness(calc(1 - var(--deck-weight,.8) * .22))}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button:active{scale:.95}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button::before{inset:0;border-radius:inherit;
+ background:radial-gradient(120% 95% at 88% 0%,var(--deck-light) 0,transparent 62%),linear-gradient(165deg,var(--deck-mid) 10%,var(--deck-dark) 105%);
+ box-shadow:inset 0 1px 0 #ffffff55,inset 0 -18px 30px #00000026,0 12px 26px #0000003d;
+ mask-image:none;-webkit-mask-image:none}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 2px #fff0;transition:box-shadow .3s ease}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button span:not(.wave-deck-glyph){max-width:100%;font-size:clamp(13px,3.6vw,16px);font-weight:720;line-height:1.12;letter-spacing:-.01em;text-wrap:balance;text-shadow:0 1px 10px #0006;color:#fff}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-glyph{position:absolute;top:11px;right:11px;left:auto;translate:none;width:clamp(38px,11vw,50px);height:clamp(38px,11vw,50px);transform:rotate(-9deg);filter:drop-shadow(0 6px 10px #0006)}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-glyph.wave-deck-avatar{width:clamp(40px,11.5vw,52px);height:clamp(40px,11.5vw,52px);top:12px;right:12px;transform:none;border-radius:50%;object-fit:cover;border:1.5px solid #ffffff70}
+body[data-page=home] .mx-wave .wave-deck-frame .deck-rec-copy{width:100%}
+body[data-page=home] .mx-wave .wave-deck-frame .deck-rec-copy small{font-size:11px;opacity:.85}
+
+/* The chosen station lifts, gets a light rim and a small "playing" bar. */
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button[aria-pressed=true]{--deck-raise:6px}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button[aria-pressed=true]::before{filter:brightness(1.12)}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button[aria-pressed=true]::after{box-shadow:inset 0 0 0 2px #ffffffd9,0 0 24px color-mix(in srgb,var(--deck-light) 55%,transparent)}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button[aria-pressed=true] .wave-deck-glyph{scale:1.08}
+
+/* "Back to usual" and "Shake": round glass buttons that pop in beside the chosen station. */
+/* Both buttons must fit in the space left of the centred card, so they stay narrow and close together. */
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut]{flex-basis:calc(var(--deck-card) * .38);min-width:0}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut]:not([hidden])~.wave-deck-item:not([hidden]),
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut]:not([hidden]){margin-inline-start:4px}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button{justify-content:center;align-items:center;text-align:center;gap:8px;opacity:1;transform:none;padding:0 2px!important;background:none;box-shadow:none}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button::before,
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button::after{display:none}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-glyph{position:static;display:grid;place-items:center;width:44px;height:44px;padding:11px;box-sizing:border-box;transform:none;border-radius:50%;color:#fff;
+ background:color-mix(in srgb,#fff 16%,transparent);box-shadow:inset 0 1px 0 #ffffff55,0 8px 20px #0003;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);filter:none}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button span:not(.wave-deck-glyph){font-size:10px;font-weight:650;line-height:1.15;max-width:100%;overflow-wrap:anywhere;color:#fff;text-align:center}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut]:not([hidden]) .wave-deck-button{animation:deck-pop .46s cubic-bezier(.2,.9,.3,1.25) both}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-item=shake]:not([hidden]) .wave-deck-button{animation-delay:.07s}
+@keyframes deck-pop{from{opacity:0;transform:translateY(14px) scale(.55)}to{opacity:1;transform:none}}
+
+@media(prefers-reduced-motion:reduce){
+ body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button{transform:none;transition:none}
+ body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut]:not([hidden]) .wave-deck-button{animation:none}
+}
+
+/* Quieter and smaller: the stations are a side choice under the wave, not the focus of the screen. */
+body[data-page=home] .mx-wave .wave-deck-frame{--deck-card:clamp(100px,27vw,148px);--deck-height:clamp(118px,17dvh,158px);height:var(--deck-height)}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck{padding-block:10px 0}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button{height:calc(var(--deck-height) - 22px);padding:10px 10px 11px!important;border-radius:16px;opacity:calc(.9 - var(--deck-weight,.8) * .4)}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button::before{box-shadow:inset 0 1px 0 #ffffff30,0 6px 16px #00000026;filter:saturate(.72) brightness(calc(.92 - var(--deck-weight,.8) * .2))}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button span:not(.wave-deck-glyph){font-size:12.5px;font-weight:620;text-shadow:0 1px 6px #0005}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-glyph{top:8px;right:8px;width:30px;height:30px;opacity:.9}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-glyph.wave-deck-avatar{width:32px;height:32px;top:8px;right:8px}
+body[data-page=home] .mx-wave .wave-deck-frame .deck-rec-copy small{font-size:10px}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button[aria-pressed=true]{--deck-raise:3px}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button[aria-pressed=true]::before{filter:saturate(.85) brightness(1.02)}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-button[aria-pressed=true]::after{box-shadow:inset 0 0 0 1.5px #ffffff8c}
+/* Short captions for the round buttons; the full wording stays in the markup for screen readers. */
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-glyph{width:38px;height:38px;padding:9px}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button span:not(.wave-deck-glyph){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut] .wave-deck-button::after{display:block;position:static;inset:auto;border-radius:0;box-shadow:none;font-size:10px;font-weight:600;line-height:1.1;color:#ffffffd9;text-align:center}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-item=usual] .wave-deck-button::after{content:"Привычное"}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-item=shake] .wave-deck-button::after{content:"Встряхнуть"}
+body[data-page=home] .mx-wave .wave-deck-frame .wave-deck-item[data-deck-shortcut]{flex-basis:56px}

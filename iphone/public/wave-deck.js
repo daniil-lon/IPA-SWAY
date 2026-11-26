@@ -1,7 +1,7 @@
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
-const RADIUS=9, BUFFER=3;
-
-export function mountWaveDeck(frame,{initial,initialKey,maker,onCenter,onTouchCenter,onTouchSettle,signal}){
+export function mountWaveDeck(frame,{initial,initialKey,maker,size,onCenter,onTouchCenter,onTouchSettle,signal}){
+ // The window holds every station once: as wide as possible for a fast fling, never showing a station twice.
+ const RADIUS=Math.max(4,Math.min(30,Math.floor(((size?.()||19)-1)/2))), BUFFER=Math.max(3,Math.floor(RADIUS/3));
  const deck=frame.querySelector('.wave-deck'), shortcuts=[...deck.querySelectorAll('[data-deck-shortcut]')];
  const windowed=new Map();
  let pending=0, animation=0, settleTimer=0, drag=null, ignoreClick=false, positioned=null, last=null, touchFrom=null, touchActive=false, selectionSlot=initial;
@@ -20,6 +20,8 @@ export function mountWaveDeck(frame,{initial,initialKey,maker,onCenter,onTouchCe
   const centered=geometry.reduce((best,m)=>Math.abs(m.distance)<Math.abs(best.distance)?m:best).item;
   for(const {item,width,distance} of geometry){
    const d=Math.max(-1.8,Math.min(1.8,distance/width));
+   // Off-screen cards keep their resting values, so a wide window costs nothing per frame.
+   if(Math.abs(d)===1.8&&item.style.getPropertyValue('--deck-distance')===(d<0?'-1.800':'1.800'))continue;
    item.style.setProperty('--deck-distance',d.toFixed(3));
    item.style.setProperty('--deck-weight',Math.pow(Math.min(1,Math.abs(d)),1.22).toFixed(3));
    item.style.setProperty('--deck-layer',String(Math.round(20-Math.abs(d)*10)));

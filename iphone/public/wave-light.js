@@ -13,9 +13,11 @@ const bands=[
 ];
 const clamp=(number,low,high)=>Math.max(low,Math.min(high,number));
 const hueDelta=(start,end)=>((end-start+540)%360+360)%360-180;
-const color=(h,s,l,a)=>'hsl('+h+' '+s+'% '+l+'% / '+clamp(a,0,1)+')';
-const waveTone=([h,s,,a]=idle)=>s>=90?[h,s,a]:[h+hueDelta(h,216)*.58,clamp(s*.55,25,47),a+hueDelta(a,224)*.58];
-export const waveSurface=track=>{const [h,s]=waveTone(track?.palette||idle);return 'hsl('+Math.round(h)+' '+Math.round(s)+'% '+(s>=90?30:17)+'%)';};
+const finite=(n,d=0)=>Number.isFinite(n)?n:d;
+const color=(h,s,l,a)=>'hsl('+finite(h)+' '+finite(s)+'% '+finite(l)+'% / '+clamp(finite(a),0,1)+')';
+// Keep the song's own hue; only tame the saturation so a loud cover does not glare behind the controls.
+const waveTone=([h,s,,a]=idle)=>[h,clamp(s*.72,30,72),a];
+export const waveSurface=track=>{const [h,s]=waveTone(track?.palette||idle);return 'hsl('+Math.round(h)+' '+Math.round(s)+'% 10%)';};
 const ease=value=>value*value*(3-2*value);
 
 export function sampleAccent(events,seconds){
@@ -137,7 +139,8 @@ function lightSurface(ctx,x,y,rx,ry,time,seed,hue,sat,accent,strength){
  const glass=ctx.createLinearGradient(x-rx,y-ry,x+rx*.7,y+ry);
  glass.addColorStop(0,color(hue,sat,67,.06));glass.addColorStop(.35,color(hue,sat,57,.22));glass.addColorStop(.66,color(accent,sat,30,.10));glass.addColorStop(1,color(hue,sat,44,.02));ctx.fillStyle=glass;ctx.fill();
  const edge=ctx.createLinearGradient(x-rx,y-ry,x+rx,y+ry);
- edge.addColorStop(0,color(hue,sat,73,.07));edge.addColorStop(.3,color(hue,sat,80,.75));edge.addColorStop(.57,color(accent,sat,65,.26));edge.addColorStop(.83,color(hue,sat,77,.52));edge.addColorStop(1,color(accent,sat,65,0));ctx.strokeStyle=edge;
+ // Gentle rims: the light should read as depth, not as neon outlines over the title.
+ edge.addColorStop(0,color(hue,sat,73,.05));edge.addColorStop(.3,color(hue,sat,80,.42));edge.addColorStop(.57,color(accent,sat,65,.18));edge.addColorStop(.83,color(hue,sat,77,.30));edge.addColorStop(1,color(accent,sat,65,0));ctx.strokeStyle=edge;
  // Layered strokes instead of ctx.filter blur: canvas filters are very slow on iOS.
  for(const [width,opacity] of [[rx*.30,.05],[rx*.26,.10],[rx*.10,.20],[rx*.038,.40]]){
   ctx.save();ctx.globalAlpha*=opacity;ctx.lineWidth=width;trace();ctx.stroke();ctx.restore();
@@ -157,30 +160,23 @@ function lightSurface(ctx,x,y,rx,ry,time,seed,hue,sat,accent,strength){
 function paintWaveBloom(ctx,w,h,t,[hue,sat,,accent],beat,mix){
  [hue,sat,accent]=waveTone([hue,sat,0,accent]);
  const unit=Math.min(w,h*.76),x=w*.5,y=h*.34;
- // Paint the whole viewport so the deck and safe areas share the same atmosphere.
+ // Paint the whole viewport in the song's colour, darkening downwards but never to black,
+ // so the station cards at the bottom sit on the same atmosphere as the title.
  const base=ctx.createLinearGradient(0,0,0,h);
- base.addColorStop(0,color(hue,sat,sat>=90?30:17,1));base.addColorStop(.43,color(hue,sat,sat>=90?20:13,1));base.addColorStop(.82,'#030506');base.addColorStop(1,'#030506');
+ base.addColorStop(0,color(hue,sat,21,1));base.addColorStop(.45,color(hue,sat,14,1));base.addColorStop(1,color(hue,sat,10,1));
  ctx.fillStyle=base;ctx.fillRect(0,0,w,h);
- const strength=.92+.40*mix;
- glow(ctx,w,h,x+unit*.14*Math.sin(t*.22),y+unit*.12*Math.cos(t*.29),unit*.94,[
-  [0,color(hue,sat,43,.34+beat*.07)],[.42,color(hue,sat,30,.26)],[1,color(accent,sat,17,0)]
+ // Stopped music keeps a calmer version of the same colours instead of a fixed palette.
+ const strength=.62+.30*mix;
+ glow(ctx,w,h,x+unit*.14*Math.sin(t*.22),y+unit*.12*Math.cos(t*.29),unit*(.94+beat*.06),[
+  [0,color(hue,sat,44,.30+beat*.12)],[.42,color(hue,sat,31,.22)],[1,color(accent,sat,17,0)]
  ]);
- glow(ctx,w,h,x+unit*.25*Math.cos(t*.27+1),h*.67,unit*1.04,[
-  [0,color(accent,sat,26,.25)],[.61,color(accent,sat,18,.12)],[1,color(accent,sat,12,0)]
+ glow(ctx,w,h,x+unit*.25*Math.cos(t*.27+1),h*.70,unit*1.1,[
+  [0,color(accent,sat,30,.26)],[.61,color(accent,sat,20,.13)],[1,color(accent,sat,14,0)]
  ]);
- const breath=1+.025*Math.sin(t*.51)+beat*.024;
- lightSurface(ctx,x+unit*.07*Math.sin(t*.21),y,unit*.48*breath,unit*.58,t*.72,1.1,hue,sat,accent,strength);
- lightSurface(ctx,x-unit*.19,y+unit*.25,unit*.62,unit*.52,t*.49,-1.4,accent,sat,hue,.39*strength);
- if(mix<.63){
-  // The stopped wave uses the warm, diffused bloom from the reference.
-  ctx.save();ctx.globalCompositeOperation='screen';
-  const warm=1-clamp(mix/.63,0,1);
-  glow(ctx,w,h,x+unit*.18*Math.sin(t*.8),y-unit*.06,unit*.55,[[0,color(327,100,52,.82*warm)],[.42,color(320,100,45,.68*warm)],[1,color(330,100,40,0)]]);
-  glow(ctx,w,h,x-unit*.1*Math.cos(t*.7),y+unit*.18,unit*.45,[[0,color(54,100,58,.96*warm)],[.34,color(48,100,52,.75*warm)],[1,color(28,100,50,0)]]);
-  lightSurface(ctx,x,y,unit*.31,unit*.35,t,2.9,51,96,326,.56*warm);
-  ctx.restore();
- }
- const fade=ctx.createLinearGradient(0,h*.52,0,h*.86);fade.addColorStop(0,'#03050600');fade.addColorStop(1,'#030506');ctx.fillStyle=fade;ctx.fillRect(0,h*.52,w,h*.48);
+ // A soft swell on each accent of the track: the shape breathes, it does not flash.
+ const breath=1+.022*Math.sin(t*.51)+beat*.05;
+ lightSurface(ctx,x+unit*.07*Math.sin(t*.21),y,unit*.48*breath,unit*.58*breath,t*.72,1.1,hue,sat,accent,strength);
+ lightSurface(ctx,x-unit*.19,y+unit*.25,unit*.62,unit*.52,t*.49,-1.4,accent,sat,hue,.32*strength);
  ctx.globalAlpha=1;
 }
 function glassShape(ctx,x,y,r,rotation,[h,s,,a],beat,draw){
@@ -268,7 +264,7 @@ export function mountWaveLight(canvas,{track,playing=false,started=playing,getAu
   if(!active())return;
   const step=animate(), elapsed=last?now-last:0;
   if(dirty||elapsed>=(playing?40:150)){
-   if(step)phase+=Math.min(elapsed,138)/1000*(motion?(playing?.89:.56):(playing?.20:.115));
+   if(step)phase+=Math.min(elapsed,138)/1000*(motion?(playing?.62:.38):(playing?.20:.115));
    const progress=step?clamp((now-changed)/650,0,1):1, mix=ease(progress);
    tone=progress===1?target:from.map((value,i)=>value+mix*((i===0||i===3)?hueDelta(value,target[i]):target[i]-value));
    mixNow=step?mixFrom+(mode-mixFrom)*ease(clamp((now-modeChanged)/(motion?360:220),0,1)):mode;
