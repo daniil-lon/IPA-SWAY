@@ -5,16 +5,16 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-5yOhYg1ijViFD4Y9X/LlMQTj5+nK+gyvnSKjcgrJMfs=' 'sha256-IS0CpFhgXZLYKaTldSEiHKxToJ5IhQYRf0miLBlxsTU=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-5yOhYg1ijViFD4Y9X/LlMQTj5+nK+gyvnSKjcgrJMfs=' 'sha256-mqh2XBAVAvJFaC6mnoXDmEGz5fT4/NUy0AA0egjuzV4=' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https: data: blob:; connect-src 'self' wss://music.academmix.ru https://commons.wikimedia.org https://api.telegram.org https://lrclib.net; frame-src https://music.yandex.ru; worker-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'
 /media/*
   Cache-Control: public, max-age=86400
 # sway:integrity:start
 /admin-client.js
   X-Sway-Size: 6857
 /app-bundle.js
-  X-Sway-Size: 698872
+  X-Sway-Size: 699313
 /app.js
-  X-Sway-Size: 265097
+  X-Sway-Size: 269168
 /asset-loader.js
   X-Sway-Size: 8758
 /audio-transition.js

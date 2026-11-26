@@ -60,8 +60,21 @@ import {createRussiaChart} from './russia-chart.js';
  addEventListener('error',e=>{if(e instanceof ErrorEvent)report(e.message,e.error?.stack||e.filename+':'+e.lineno);});
  addEventListener('unhandledrejection',e=>{const r=e.reason;if(r?.name!=='AbortError')report(r?.message||r,r?.stack);});
 }
+// A network that cuts long responses breaks plain <img> loads before the service worker is installed:
+// fetch the same /art/ file in small parts once, then fall through to the usual fallbacks if that fails too.
+const artRecovery=new Map();
+function recoverArt(img){
+ const src=img.getAttribute('src')||'';
+ if(img.dataset.artRecovered||!/^\/art\//.test(src))return false;
+ img.dataset.artRecovered='1';
+ let job=artRecovery.get(src);
+ if(!job){job=fetchAsset(new Request(src),{recovery:true}).then(r=>r.ok?r.blob():Promise.reject()).then(blob=>URL.createObjectURL(blob));artRecovery.set(src,job);job.catch(()=>artRecovery.delete(src));}
+ job.then(url=>{if(img.getAttribute('src')===src){img.hidden=false;img.src=url;}}).catch(()=>{if(img.getAttribute('src')===src)img.src=src;});
+ return true;
+}
 document.addEventListener('error',event=>{
  const img=event.target;if(!(img instanceof HTMLImageElement))return;
+ if(recoverArt(img))return;
  if(img.hasAttribute('data-account-avatar')||img.classList.contains('mx-artist-photo'))img.hidden=true;
  if(img.hasAttribute('data-player-art-fallback')){
   const source=img.getAttribute('src'),fallback=img.dataset.playerArtFallback;
