@@ -1,13 +1,16 @@
 import { api, on, toast, errorToast, store, initImageFallback } from './core.js';
-import { render as renderOverview } from './sections/overview.js';
-import { render as renderCatalog } from './sections/catalog.js';
-import { render as renderLyrics } from './sections/lyrics.js';
-import { render as renderContent } from './sections/content.js';
-import { render as renderAnalytics } from './sections/analytics.js';
-import { render as renderUsers } from './sections/users.js';
-import { render as renderSettings } from './sections/settings.js';
+import * as overview from './sections/overview.js';
+import * as catalog from './sections/catalog.js';
+import * as lyrics from './sections/lyrics.js';
+import * as content from './sections/content.js';
+import * as analytics from './sections/analytics.js';
+import * as users from './sections/users.js';
+import * as settings from './sections/settings.js';
+import * as listeners from './sections/listeners.js';
 
-const VIEWS = { overview: renderOverview, catalog: renderCatalog, lyrics: renderLyrics, content: renderContent, analytics: renderAnalytics, users: renderUsers, settings: renderSettings };
+// Each section module exports render plus its own title and crumb.
+const SECTIONS = { overview, catalog, lyrics, content, analytics, listeners, users, settings };
+const VIEWS = Object.fromEntries(Object.entries(SECTIONS).map(([key, module]) => [key, Object.assign(root => module.render(root), { title: module.title, crumb: module.crumb })]));
 const DEFAULT_VIEW = 'overview';
 
 const authScreen = document.getElementById('auth-screen');

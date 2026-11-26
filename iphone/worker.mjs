@@ -26,6 +26,7 @@ import {readTaste,writeTaste} from './taste-store.mjs';
 import {playlistRoute} from './playlist-store.mjs';
 import {folderRoute} from './folder-store.mjs';
 import {experienceRoute} from './experience-store.mjs';
+import {listenersReport,recordListen} from './listeners-store.mjs';
 import {importPlaylist} from './playlist-import.mjs';
 // The catalog is a 5 MB static asset. Loading it through the assets binding keeps
 // it out of the Worker bundle and lets every isolate parse it at most once.
@@ -287,6 +288,10 @@ export default {async fetch(req,env,ctx){
    if(required&&!await identity(req,env))return json({error:'login_required'},401);
    return await serveCustomMedia(req,path,env,{private:required});
   }
+  if(path==='/api/admin/listeners'&&method==='GET'){
+   if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
+   return json(await listenersReport(env,await catalogTracks(env,req).catch(()=>[])));
+  }
   if(path==='/api/admin/experience'||path.startsWith('/api/admin/experience/reports/')){
    if(!await verifyAdminSession(req,env))return json({error:'unauthorized'},401);
    if(method!=='GET'&&(req.headers.get('Origin')!==url.origin||!req.headers.get('Content-Type')?.startsWith('application/json')))return json({error:'origin'},403);
@@ -340,6 +345,7 @@ export default {async fetch(req,env,ctx){
   if(path.startsWith('/auth/')) return await auth(req,url,env);
   if(path==='/api/client-error'&&method==='POST')return clientError(req);
   if(path==='/api/visit'&&method==='POST')return recordVisit(req,env);
+  if(path==='/api/listen'&&method==='POST')return recordListen(req,env,()=>identity(req,env));
   if(path==='/api/health' && (method==='GET' || method==='HEAD')){
    const custom=await getCustomTracks(env);
    return json({ok:true,tracks:(await catalogTracks(env,req)).length+custom.length,loginConfigured:ready(env),loginRequired:loginRequired(env)});

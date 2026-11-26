@@ -155,6 +155,22 @@ let likes=new Set([...load('likes',[]),...onDeviceLikes]), timer, installation, 
 let audio=$('#audio');
 const audioElements=[audio,$('#audio-next')], main=$('#main'), dialog=$('#dialog'), sheet=$('#sheet'), editor=$('#profile-editor');
 const playbackMetrics=createPlaybackMetrics(audioElements,()=>audio);
+// Listener counter for the admin panel: a random id per browser (no name, no IP), pinged while music plays.
+{
+ let visitor='',lastPing=0;
+ try{visitor=localStorage.getItem('sway.visitor')||'';if(!/^[a-f0-9]{32}$/.test(visitor)){visitor=[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,'0')).join('');localStorage.setItem('sway.visitor',visitor);}}catch{}
+ const ping=(force=false)=>{
+  if(!visitor||!playing||!current||offlineOnly()||navigator.onLine===false)return;
+  if(!force&&Date.now()-lastPing<110000)return;
+  if(force&&Date.now()-lastPing<60000)return;
+  lastPing=Date.now();
+  let source='';try{source=localStorage.getItem('tonika.source')||'';}catch{}
+  const app=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  try{navigator.sendBeacon?.('/api/listen',new Blob([JSON.stringify({visitor,track:current.id,source,app})],{type:'application/json'}));}catch{}
+ };
+ for(const element of audioElements)element.addEventListener('playing',()=>setTimeout(()=>ping(true),1500));
+ setInterval(ping,30000);
+}
 const reportTrack=createTrackReporter({api,html,icon,metrics:playbackMetrics});
 const fullClose=dialog.querySelector('.dialog-close');
 let lyricsUI=null,lyricsLifetime=null,lyricsMode='off';
