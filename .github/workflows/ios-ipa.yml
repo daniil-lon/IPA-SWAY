@@ -1,0 +1,35 @@
+# Builds an unsigned Sway.ipa for iPhone on a macOS runner (no Mac needed locally).
+# Run it from the Actions tab ("Run workflow"), download the Sway-ipa artifact and install it
+# with Sideloadly or AltStore, which sign it with your own Apple ID. See ios/README.md.
+name: iOS IPA
+on:
+  workflow_dispatch:
+  push:
+    paths: ['ios/**', '.github/workflows/ios-ipa.yml']
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Build
+        working-directory: ios
+        run: |
+          xcodebuild -project Sway.xcodeproj -target Sway -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+      - name: Package Sway.ipa
+        working-directory: ios
+        run: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/Sway.app Payload/
+          zip -qry Sway.ipa Payload
+          ls -la Sway.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sway-ipa
+          path: ios/Sway.ipa
+          retention-days: 30

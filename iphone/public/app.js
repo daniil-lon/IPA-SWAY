@@ -1,6 +1,6 @@
 import {nativeAndroid,connectNativeAudio,nativeEqualizer,nativeQueue,nativeRepeat} from './native-audio.js';
 import {loadCatalog} from './catalog-loader.js';
-import {fetchAsset} from './asset-loader.js';
+import {fetchAsset,interruptedConnection} from './asset-loader.js';
 import {searchTracks,normalizeSearch} from './smart-search.js';
 import {createListeningAccount} from './listening-account.js';
 import {mountListeningStats} from './listening-stats.js';
@@ -69,9 +69,24 @@ function recoverArt(img){
  img.dataset.artRecovered='1';
  let job=artRecovery.get(src);
  if(!job){job=fetchAsset(new Request(src),{recovery:true}).then(r=>r.ok?r.blob():Promise.reject()).then(blob=>URL.createObjectURL(blob));artRecovery.set(src,job);job.catch(()=>artRecovery.delete(src));}
- job.then(url=>{if(img.getAttribute('src')===src){img.hidden=false;img.src=url;}}).catch(()=>{if(img.getAttribute('src')===src)img.src=src;});
+ job.then(url=>{if(img.getAttribute('src')===src){img.hidden=false;img.src=url;}}).catch(()=>{if(img.getAttribute('src')===src)img.src=fullArt(src);});
  return true;
 }
+// Small copies (scripts/make-thumbs.py): lists, the deck and avatars load ~10 KB instead of ~60 KB.
+const small=u=>/^\/art\/(?:covers|artists)\/[^/]+$/.test(u||'')?'/art/s/'+u.slice(5)+'.webp':u;
+const fullArt=u=>u.startsWith('/art/s/')?'/art/'+u.slice(7,-5):u;
+// Without the worker a cut connection keeps <img> waiting for a minute before "error" fires.
+// On a network already known to cut, visible images still loading after a few seconds take the
+// chunked path straight away.
+if(!navigator.serviceWorker?.controller)setInterval(()=>{
+ if(!interruptedConnection()||document.hidden)return;
+ for(const img of document.querySelectorAll('img[src^="/art/"]')){
+  if(img.complete||img.dataset.artRecovered)continue;
+  const at=img.dataset.artWait=img.dataset.artWait||String(Date.now());
+  const r=img.getBoundingClientRect();
+  if(Date.now()-at>2500&&r.bottom>0&&r.top<innerHeight&&r.width)recoverArt(img);
+ }
+},1500);
 document.addEventListener('error',event=>{
  const img=event.target;if(!(img instanceof HTMLImageElement))return;
  if(recoverArt(img))return;
@@ -294,7 +309,7 @@ async function api(path,method='GET',data={},signal){
 function tracksFrom(ids){return ids.map(x=>map.get(x)).filter(Boolean);}
 function time(n){return Number.isFinite(n)?Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0'):'–:––';}
 const button=(name,label,attr='',classes='icon')=>'<button type="button" class="'+classes+'" aria-label="'+html(label)+'" '+attr+'>'+icon(name)+'</button>';
-const art=t=>'<img src="'+html(t.art)+'" alt="" loading="lazy" decoding="async">';
+const art=t=>'<img src="'+html(small(t.art))+'" alt="" loading="lazy" decoding="async">';
 const download=t=>canDownload(t)?button(offlineTracks.has(t.id)?'check':'download',offlineTracks.has(t.id)?'Удалить из скачанного: '+t.title:'Скачать в Sway: '+t.title,'data-offline-toggle="'+html(t.id)+'"'+(offlineJobs.has(t.id)||!offlineTracks.has(t.id)&&(offlineOnly()||navigator.onLine===false)?' disabled':''),'icon offline-toggle'+(offlineTracks.has(t.id)?' saved':'')):'';
 const row=(t,compact=false)=>'<article class="row" data-row="'+t.id+'"><button class="row-track" type="button" data-play="'+t.id+'" aria-label="Воспроизвести '+html(t.title)+'"><span class="row-art">'+art(t)+'</span><div><strong>'+html(t.title)+(t.isExplicit?' <span class="badge-e" aria-label="Explicit" title="Ненормативная лексика">E</span>':'')+'</strong><small>'+html(t.artist)+(t.provider?' <span class="source-tag">Commons</span>':'')+'</small></div></button><div class="row-actions"><small>'+time(t.seconds)+'</small>'+(compact?button('more','Действия с треком «'+t.title+'»','data-info-track="'+t.id+'"'):button('heart','Мне нравится','data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"')+playlists.quickButton(t,button)+button('plus','Добавить в очередь','data-add="'+t.id+'"'))+'</div></article>';
 const rows=(items,compact=false)=>items.length?'<div class="rows">'+items.map(t=>row(t,compact)).join('')+'</div>':'<div class="panel"><p class="quiet">Здесь пока нет треков.</p></div>';
@@ -397,7 +412,7 @@ function deckCard(slot){
  if(color)item.dataset.moodColor=color;
  if(palette){const [h,s,,a]=palette;item.style.setProperty('--deck-light','hsl('+a+' '+s+'% 62%)');item.style.setProperty('--deck-mid','hsl('+h+' '+s+'% 37%)');item.style.setProperty('--deck-dark','hsl('+h+' 70% 9%)');}
  item.dataset.deckItem=key;
- const glyph=emblem?'<img class="wave-deck-glyph" src="/art/wave-'+emblem+'.svg" alt="" draggable="false">':'<img class="wave-deck-glyph'+(track?' wave-deck-avatar':'')+'" src="'+html(image)+'"'+(track?' data-player-art-fallback="'+html(track.art)+'"':'')+' alt="" draggable="false" decoding="async">';
+ const glyph=emblem?'<img class="wave-deck-glyph" src="/art/wave-'+emblem+'.svg" alt="" draggable="false">':'<img class="wave-deck-glyph'+(track?' wave-deck-avatar':'')+'" src="'+html(small(image))+'"'+(track?' data-player-art-fallback="'+html(small(track.art))+'"':'')+' alt="" draggable="false" decoding="async">';
  item.innerHTML='<button type="button" class="wave-deck-button" '+attr+' aria-label="'+html(title)+'" aria-pressed="'+(key===selectedMixKey())+'">'+glyph+(track?'<span class="deck-rec-copy"><small>В стиле артиста</small><b>'+html(title)+'</b></span>':'<span>'+html(title)+'</span>')+'</button>';
  return item;
 }
@@ -428,8 +443,11 @@ function setWavePhoto(img,t){
  const cut=new Image();cut.className='mx-artist-cut';cut.alt='';cut.decoding='async';
  const fresh=()=>live.isConnected&&live.dataset.cutWant===cutSrc;
  cut.onload=()=>{if(!fresh())return;live.querySelector('.mx-artist-cut')?.remove();(live.querySelector('.mx-title-slot')||img).after(cut);live.dataset.cutout='';};
- cut.onerror=()=>{cut.onerror=null;if(!fresh())return;fetchAsset(new Request(cutSrc),{recovery:true}).then(r=>r.ok?r.blob():null).then(blob=>{if(blob&&fresh())cut.src=URL.createObjectURL(blob);}).catch(()=>{});};
- cut.src=cutSrc;
+ let recovering=false;
+ const recover=()=>{if(recovering||!fresh())return;recovering=true;cut.onerror=null;fetchAsset(new Request(cutSrc),{recovery:true}).then(r=>r.ok?r.blob():null).then(blob=>{if(blob&&fresh())cut.src=URL.createObjectURL(blob);}).catch(()=>{});};
+ cut.onerror=recover;
+ // A cut connection stalls instead of failing, so "error" would only come after about a minute.
+ if(interruptedConnection())recover();else{cut.src=cutSrc;setTimeout(()=>{if(!cut.complete||!cut.naturalWidth)recover();},4000);}
 }
 let currentStory = null, storyIndex = 0, storyTimer = null;
 function storiesRail(){ return ''; }
@@ -542,8 +560,8 @@ window.prevStorySlide = prevStorySlide;
 window.nextStorySlide = nextStorySlide;
 window.handleStoryAction = handleStoryAction;
 
-function haptic(ms = 10) {
-  try { if (navigator.vibrate) navigator.vibrate(ms); } catch {}
+function haptic(){// swipes between tracks, sharing; goes through the same settings switch as other feedback
+  pulse('swipe');
 }
 
 let waveFilters = loadWaveFilters();
@@ -1087,7 +1105,7 @@ function albumView() {
         '<div class="artist-albums-rail">'+
           related.map(alb => 
             '<a class="artist-album-card" href="#album/'+encodeURIComponent(alb.id)+'">'+
-              '<img class="artist-album-art" src="'+html(alb.art)+'" alt="'+html(alb.title)+'" loading="lazy">'+
+              '<img class="artist-album-art" src="'+html(small(alb.art))+'" alt="'+html(alb.title)+'" loading="lazy">'+
               '<strong class="artist-album-title">'+html(alb.title)+'</strong>'+
               '<small class="artist-album-sub">'+html(alb.artistString)+'</small>'+
               '<span class="artist-album-year">'+alb.year+'</span>'+
@@ -1113,7 +1131,7 @@ function openArtistsSheet(artistNames) {
         const slug = slugify(name);
         const art = artistAvatar(name);
         return '<a class="multi-artist-row" href="#artist/'+encodeURIComponent(slug)+'" data-close-layers>'+
-          '<img class="multi-artist-avatar" src="'+html(art)+'" alt="'+html(name)+'">'+
+          '<img class="multi-artist-avatar" src="'+html(small(art))+'" alt="'+html(name)+'">'+
           '<strong>'+html(name)+'</strong>'+
           icon('forward')+
         '</a>';
@@ -1137,7 +1155,7 @@ function favoriteChips(){
 function favoriteArtists(expanded=false){
  const names=new Set([...preferredArtists,...tracksFrom([...likes].reverse()).flatMap(t=>artistCredits(t.artist))]);
  const artists=[...new Set([...names].map(resolveArtist).filter(Boolean))];
- return artists.length?'<div class="shelf-artists '+(expanded?'shelf-artists-grid':'')+'">'+artists.slice(0,expanded?artists.length:8).map(a=>'<a href="#artist/'+encodeURIComponent(a.slug)+'"><img src="'+html(a.art||a.fallbackArt||a.items[0]?.art)+'" alt="" loading="lazy"><strong>'+html(a.name)+'</strong><small>'+trackCount(a.items.length)+'</small></a>').join('')+'</div>':'';
+ return artists.length?'<div class="shelf-artists '+(expanded?'shelf-artists-grid':'')+'">'+artists.slice(0,expanded?artists.length:8).map(a=>'<a href="#artist/'+encodeURIComponent(a.slug)+'"><img src="'+html(small(a.art||a.fallbackArt||a.items[0]?.art))+'" alt="" loading="lazy"><strong>'+html(a.name)+'</strong><small>'+trackCount(a.items.length)+'</small></a>').join('')+'</div>':'';
 }
 
 function mobileSearch(){
@@ -1181,7 +1199,7 @@ function catalogArtists(){
  return {hot,groups};
 }
 function artistShelf(groups,expanded=false){
- return '<div class="shelf-artists'+(expanded?' shelf-artists-grid':'')+'">'+groups.slice(0,expanded?150:12).map(p=>'<a href="#artist/'+encodeURIComponent(p.slug)+'"><img src="'+html(p.art)+'" alt="" loading="lazy"><strong>'+html(p.name)+'</strong><small>'+trackCount(p.items.length)+'</small></a>').join('')+'</div>';
+ return '<div class="shelf-artists'+(expanded?' shelf-artists-grid':'')+'">'+groups.slice(0,expanded?150:12).map(p=>'<a href="#artist/'+encodeURIComponent(p.slug)+'"><img src="'+html(small(p.art))+'" alt="" loading="lazy"><strong>'+html(p.name)+'</strong><small>'+trackCount(p.items.length)+'</small></a>').join('')+'</div>';
 }
 function loadChart(force=false){
  if(chartJob||(!force&&Date.now()-chartTime<60000))return;
@@ -1609,7 +1627,7 @@ function fullArtistLinks(t){
  });
  return '<div class="mx-full-artists">'+(pictures.join('')||'<img src="'+html(t.art)+'" alt="">')+'</div>';
 }
-const fullDock=t=>'<div class="full-dock" inert><button class="full-dock-track" type="button" data-action="full-top" aria-label="Вернуться к плееру"><img src="'+html(t.art)+'" alt=""><span><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></span></button>'+button('heart','Мне нравится','data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"')+fullToggle('icon dock-toggle')+'</div>';
+const fullDock=t=>'<div class="full-dock" inert><button class="full-dock-track" type="button" data-action="full-top" aria-label="Вернуться к плееру"><img src="'+html(small(t.art))+'" alt=""><span><strong>'+html(t.title)+'</strong><small>'+html(t.artist)+'</small></span></button>'+button('heart','Мне нравится','data-like="'+t.id+'" aria-pressed="'+likes.has(t.id)+'"')+fullToggle('icon dock-toggle')+'</div>';
 function fullArtistCard(t){
  const artist=resolveArtist(artistCredits(t.artist)[0]);if(!artist)return '';
  const stats=community.artists[canonical(artist.name)]||{listeners:0};
@@ -1640,7 +1658,7 @@ function trackWaveButton(t,title='Волна по треку'){
 // «Встряхнуть»: a thin, quick light runs once around the edges of the screen, so it is clear Моя волна switched.
 function shakeBurst(){
  document.querySelector('.sway-edge')?.remove();
- navigator.vibrate?.([18,30,18]);
+ pulse('shake');
  if(!motionAllowed())return;
  const layer=document.createElement('div');layer.className='sway-edge';layer.setAttribute('aria-hidden','true');
  layer.innerHTML='<i></i><i></i>';document.documentElement.append(layer);
@@ -1811,7 +1829,7 @@ function renderLyricResults(){
   lyricsResults.map(l=>{
    const t=map.get(l.id);
    return '<div class="lyric-card" data-play="'+html(l.id)+'">'+
-    '<div class="lyric-card-art">'+(t?'<img src="'+html(t.art)+'" alt="" loading="lazy">':icon('music'))+'</div>'+
+    '<div class="lyric-card-art">'+(t?'<img src="'+html(small(t.art))+'" alt="" loading="lazy">':icon('music'))+'</div>'+
     '<div class="lyric-card-body">'+
       '<div class="lyric-card-names"><strong>'+html(l.title)+'</strong> · <small>'+html(l.artist)+'</small></div>'+
       '<p class="lyric-card-quote">«'+html(l.snippet)+'»</p>'+
@@ -2610,7 +2628,7 @@ function paintSheet(){
  if(modal==='onboarding'){
   const picks=onboardingArtists();
   content='<h2 class="dialog-title">Кого ты слушаешь?</h2><p class="onboard-lead">Отметь хотя бы троих — «Моя волна» сразу подстроится под тебя</p>'+
-   '<div class="onboard-grid">'+picks.map(a=>'<button type="button" class="onboard-artist" data-onboard-artist="'+html(a.name)+'" aria-pressed="'+onboardPicks.has(a.name)+'"><img src="'+html(a.art)+'" alt="" loading="lazy" decoding="async"><span>'+html(a.name)+'</span></button>').join('')+'</div>'+
+   '<div class="onboard-grid">'+picks.map(a=>'<button type="button" class="onboard-artist" data-onboard-artist="'+html(a.name)+'" aria-pressed="'+onboardPicks.has(a.name)+'"><img src="'+html(small(a.art))+'" alt="" loading="lazy" decoding="async"><span>'+html(a.name)+'</span></button>').join('')+'</div>'+
    '<div class="onboard-footer"><button type="button" class="btn" data-onboard-done="skip">Пропустить</button><button type="button" class="btn primary" data-onboard-done="save">'+(onboardPicks.size?'Готово · '+onboardPicks.size:'Готово')+'</button></div>';
  }
  if(modal==='sleep-timer'){
@@ -2638,8 +2656,8 @@ function paintSheet(){
   const t=infoTrack,stats=community.tracks[t.canonicalId||t.id]||{plays:0,listeners:0,likes:0};
   const artistParts=t.artists||splitArtists(t.artist);
   const artistLine=artistParts.length>1
-    ?'<button type="button" class="mx-info-artist" data-action="show-artists" data-artists="'+html(artistParts.join(','))+'"><img class="mx-artist-avatar" src="'+html(artistAvatar(artistParts[0]))+'" alt="">'+html(t.artist)+' '+icon('forward')+'</button>'
-    :'<a class="mx-info-artist" href="#artist/'+encodeURIComponent(slugify(artistParts[0]||t.artist))+'" data-close-layers><img class="mx-artist-avatar" src="'+html(artistAvatar(t.artist))+'" alt="">'+html(t.artist)+'</a>';
+    ?'<button type="button" class="mx-info-artist" data-action="show-artists" data-artists="'+html(artistParts.join(','))+'"><img class="mx-artist-avatar" src="'+html(small(artistAvatar(artistParts[0])))+'" alt="">'+html(t.artist)+' '+icon('forward')+'</button>'
+    :'<a class="mx-info-artist" href="#artist/'+encodeURIComponent(slugify(artistParts[0]||t.artist))+'" data-close-layers><img class="mx-artist-avatar" src="'+html(small(artistAvatar(t.artist)))+'" alt="">'+html(t.artist)+'</a>';
   const alb=t.albumId?resolveAlbum(t.albumId):null;
   const albumLine=alb?'<a class="sheet-album-row" href="#album/'+encodeURIComponent(alb.id)+'" data-close-layers>'+icon('disc')+'<span>Альбом: <strong>'+html(alb.title)+'</strong></span>'+icon('forward')+'</a>':'';
   content='<div class="mx-info-top"><button class="info-art" type="button" data-action="track-cover" aria-label="Посмотреть обложку">'+art(t)+'</button><div><h2>'+html(t.title)+(t.isExplicit?' <span class="badge-e">E</span>':'')+'</h2><p class="quiet">'+(t.provider?'Wikimedia Commons':time(t.seconds))+'</p></div></div>'+artistLine+albumLine+'<p class="track-community quiet">'+stats.plays.toLocaleString('ru-RU')+' прослушиваний в Sway · '+stats.likes.toLocaleString('ru-RU')+' лайков<br>'+stats.listeners.toLocaleString('ru-RU')+' слушателей за 30 дней</p>'+trackWaveButton(t)+

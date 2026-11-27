@@ -37,13 +37,14 @@ async function warmShell(){
 }
 
 // Art: on a cutting network go straight to small parts; otherwise check the whole body so a cut image falls back.
+// A cut connection stalls instead of failing, so a direct load that takes over 4 s counts as cut too.
 async function artResponse(event,request){
  if(!interruptedConnection())try{
   const r=await fetch(request);if(!r.ok)return r;
   const d=await r.arrayBuffer(),n=r.headers.get('Content-Length');
   if(n&&!r.headers.get('Content-Encoding')&&d.byteLength!=n)throw 0;
   return new Response(d,{status:r.status,headers:r.headers});
- }catch(e){event.request.signal?.throwIfAborted();if(e?.name!=='TimeoutError')markInterruptedConnection();}
+ }catch{event.request.signal?.throwIfAborted();markInterruptedConnection();}
  return fetchAsset(event.request,{recovery:true});
 }
 
@@ -57,7 +58,7 @@ async function shellResponse(event,path){
   // Covers carry no exact size and are often slower than 8 s on mobile data. Fetching them through the
   // strict code path flipped every later asset into 8 KB chunks and then failed the image outright.
   const art=path.startsWith('/art/');
-  const request=new Request(event.request,{cache:entry?'no-store':event.request.cache,signal:AbortSignal.timeout(art?15000:8000)});
+  const request=new Request(event.request,{cache:entry?'no-store':event.request.cache,signal:AbortSignal.timeout(art?4000:8000)});
   let response=art?await artResponse(event,request):
    isTransferAsset(path)?await fetchAsset(request):await fetch(request);
   if(path==='/'&&response.ok){

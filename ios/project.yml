@@ -1,0 +1,27 @@
+# Xcode project for the Sway iPhone app. Generate it with XcodeGen (`xcodegen generate`);
+# .github/workflows/ios-ipa.yml does that on a macOS runner and produces an unsigned Sway.ipa.
+name: Sway
+options:
+  bundleIdPrefix: ru.academmix
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  Sway:
+    type: application
+    platform: iOS
+    sources: [Sway]
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.academmix.sway
+        PRODUCT_NAME: Sway
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: Sway/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: "5.0"
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""

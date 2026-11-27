@@ -1,0 +1,4 @@
+Sway.xcodeproj/
+build/
+Payload/
+*.ipa
