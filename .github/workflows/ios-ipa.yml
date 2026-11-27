@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
   push:
     paths: ['ios/**', '.github/workflows/ios-ipa.yml']
+permissions:
+  contents: write
 jobs:
   ipa:
     runs-on: macos-15
@@ -33,3 +35,10 @@ jobs:
           name: Sway-ipa
           path: ios/Sway.ipa
           retention-days: 30
+      # A plain download link without signing in: Releases → latest → Sway.ipa.
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="build-${{ github.run_number }}"
+          gh release create "$tag" ios/Sway.ipa --repo "${{ github.repository }}" --title "Sway для iPhone ($tag)" --notes "Неподписанный Sway.ipa. Установка: ios/README.md" --latest
