@@ -1,5 +1,6 @@
 // Small, version-checked responses keep public assets usable on interrupted links.
 // API responses, admin assets and catalog permissions are deliberately separate.
+import {isThumb,thumbBytes} from './thumb-packs.mjs';
 const partSize=8192,maxSize=32*1024*1024,maxCache=40*1024*1024;
 const entries=new Map();let cachedBytes=0;
 export function transferableAsset(path){
@@ -23,12 +24,20 @@ async function bytesFor(path,request,env,encoding){
  if(existing){cachedBytes-=existing.size||0;entries.delete(key);}
  const entry={at:Date.now(),size:0};
  entry.pending=(async()=>{
-  const url=new URL(request.url);url.pathname=path;url.search='';
-  const response=await env.ASSETS.fetch(new Request(url,{headers:{'Accept-Encoding':'identity'}}));
-  if(response.status!==200||response.headers.has('Content-Encoding')){if(entries.get(key)===entry)entries.delete(key);response.body?.cancel().catch(()=>{});return {error:response.status===200?502:response.status};}
-  if(Number(response.headers.get('Content-Length'))>maxSize){response.body?.cancel().catch(()=>{});return {error:413};}
-  let data=new Uint8Array(await response.arrayBuffer());if(data.length>maxSize)return {error:413};
-  const rawSize=data.length,type=response.headers.get('Content-Type')||'application/octet-stream';
+  let data,type;
+  if(isThumb(path)){
+   const thumb=await thumbBytes(path,request,env);
+   if(thumb.error){if(entries.get(key)===entry)entries.delete(key);return thumb;}
+   ({data,type}=thumb);
+  }else{
+   const url=new URL(request.url);url.pathname=path;url.search='';
+   const response=await env.ASSETS.fetch(new Request(url,{headers:{'Accept-Encoding':'identity'}}));
+   if(response.status!==200||response.headers.has('Content-Encoding')){if(entries.get(key)===entry)entries.delete(key);response.body?.cancel().catch(()=>{});return {error:response.status===200?502:response.status};}
+   if(Number(response.headers.get('Content-Length'))>maxSize){response.body?.cancel().catch(()=>{});return {error:413};}
+   data=new Uint8Array(await response.arrayBuffer());if(data.length>maxSize)return {error:413};
+   type=response.headers.get('Content-Type')||'application/octet-stream';
+  }
+  const rawSize=data.length;
   if(encoding==='gzip')data=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
   const version=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',data)),v=>v.toString(16).padStart(2,'0')).join('');
   while(cachedBytes+data.length>maxCache&&entries.size){

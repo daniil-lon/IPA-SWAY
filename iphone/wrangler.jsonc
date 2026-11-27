@@ -8,6 +8,6 @@
   "observability": {"enabled": true, "head_sampling_rate": 1},
   "vars": {"REQUIRE_YANDEX_LOGIN":"0","YANDEX_CLIENT_ID":"199f215e4e224c379416bf4fc2cfca0f"},
   "routes": [{"pattern": "music.academmix.ru", "custom_domain": true}],
-  "assets": {"directory":"./public","binding":"ASSETS","run_worker_first":["/api/*","/auth/*","/media/*","/t/*","/catalog.json","/lyrics/*","/sw.js"]},
+  "assets": {"directory":"./public","binding":"ASSETS","run_worker_first":["/api/*","/art/s/*","/auth/*","/media/*","/t/*","/catalog.json","/lyrics/*","/sw.js"]},
   "d1_databases": [{"binding":"DB","database_name":"tonika-music","database_id":"4532cc16-3abb-4b72-b87e-e53c6f161742"}]
 }

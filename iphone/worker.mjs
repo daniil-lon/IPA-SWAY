@@ -4,6 +4,7 @@ import {applyCatalogOverrides,auditCatalog,saveCatalogOverride} from './catalog-
 import {safeEqual,verifyAdminSession} from './admin-store.mjs';
 import {media} from './media.mjs';
 import {assetPart} from './asset-transfer.mjs';
+import {thumbResponse} from './thumb-packs.mjs';
 import {assetSocket,catalogSocket} from './asset-socket.mjs';
 import {isD1ReadLimit,recoverPublishedCatalog} from './catalog-recovery.mjs';
 import chartItems from './public/chart.json';
@@ -253,6 +254,7 @@ export default {async fetch(req,env,ctx){
   }
   // Streaming pauses too; downloaded tracks play from the device.
   if((path.startsWith('/media/')||path==='/catalog.json')&&await maintenanceMode(env))return new Response(MAINTENANCE_HTML,{status:503,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Retry-After':'120'}});
+  if(path.startsWith('/art/s/'))return thumbResponse(req,env);
   if(path==='/api/asset-part')return assetPart(req,env);
   if(path==='/api/asset-socket')return assetSocket(req,env);
   if(path==='/api/media-part'||path==='/api/media-socket'){
